@@ -6,6 +6,6 @@ uploads
 logs
 *.log
 coverage
-state.json
 mobile/build
 mobile/.dart_tool
+_to_delete
