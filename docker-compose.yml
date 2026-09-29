@@ -1,0 +1,29 @@
+# Production-like stack: MongoDB + API + web (nginx). Put TLS in front (e.g. Caddy, a load balancer, or Cloudflare).
+#   cp server/.env.example server/.env   # fill in the secrets
+#   docker compose up -d --build
+#   docker compose exec api node dist/seed.js   # optional demo data on an EMPTY database
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes: [mongo-data:/data/db]
+    # Not exposed to the internet. Use `docker compose exec mongo mongosh` for admin work.
+
+  api:
+    build: ./server
+    restart: unless-stopped
+    env_file: ./server/.env
+    environment:
+      MONGO_URI: mongodb://mongo:27017/nanoskool
+    volumes: [uploads:/app/uploads]
+    depends_on: [mongo]
+
+  web:
+    build: ./web
+    restart: unless-stopped
+    ports: ["8080:80"]
+    depends_on: [api]
+
+volumes:
+  mongo-data:
+  uploads:

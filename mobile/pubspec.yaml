@@ -1,0 +1,30 @@
+name: nanoskool
+description: Nanoskool LMS mobile app for students, parents and teachers.
+publish_to: 'none'
+version: 2.0.0+20
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  flutter_secure_storage: ^9.2.0
+  shared_preferences: ^2.2.0
+  url_launcher: ^6.3.0
+  intl: ^0.19.0
+  flutter_widget_from_html_core: ^0.15.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  # Uncomment after copying the old app's images (see README):
+  # assets:
+  #   - assets/images/
+  #   - assets/icons/

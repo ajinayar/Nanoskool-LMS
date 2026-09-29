@@ -1,0 +1,24 @@
+/* Inter (SIL Open Font License), bundled with the app so it works offline */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./assets/fonts/InterVariable.woff2') format('woff2-variations');
+}
+/* Nunito (SIL Open Font License): rounded letters for the younger grades' student app */
+@font-face {
+  font-family: 'Nunito Variable';
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('./assets/fonts/NunitoVariable.woff2') format('woff2-variations');
+}
+html, body, #root { height: 100%; }
+body { margin: 0; }
+.rich-text p { margin: 0 0 0.8em; }
+.rich-text ul, .rich-text ol { padding-left: 1.4em; }
+.rich-text blockquote { border-left: 3px solid #d9dbea; margin: 0 0 1em; padding-left: 1em; color: #5c6079; }
+.rich-text pre { background: #1d1f33; color: #f5f6fb; padding: 12px; border-radius: 8px; overflow-x: auto; }
+
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; font-feature-settings: 'cv11', 'ss01'; }

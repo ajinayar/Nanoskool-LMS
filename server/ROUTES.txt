@@ -1,0 +1,89 @@
+GET     /api/ai/usage  
+GET     /api/ai/chats  
+POST    /api/ai/chats  
+GET     /api/ai/chats/:id  
+DELETE  /api/ai/chats/:id  
+POST    /api/ai/chats/:id/messages  
+POST    /api/auth/login  
+POST    /api/auth/refresh  
+POST    /api/auth/logout  
+GET     /api/auth/me  
+PATCH   /api/auth/me  
+POST    /api/auth/change-password  
+POST    /api/auth/forgot-password  
+POST    /api/auth/reset-password  
+GET     /api/partners  roles:'super_admin'
+POST    /api/partners  roles:'super_admin'
+GET     /api/partners/:id  roles:'super_admin', 'partner'
+PATCH   /api/partners/:id  roles:'super_admin'
+POST    /api/partners/:id/users  roles:'super_admin'
+GET     /api/schools  roles:'super_admin', 'partner'
+POST    /api/schools  roles:'super_admin', 'partner'
+GET     /api/schools/:id  
+PATCH   /api/schools/:id  roles:'super_admin', 'partner', 'school_admin'
+GET     /api/classes  roles:'super_admin', 'partner', 'school_admin', 'teacher'
+POST    /api/classes  roles:'super_admin', 'partner', 'school_admin'
+GET     /api/classes/:id  
+PATCH   /api/classes/:id  roles:'super_admin', 'partner', 'school_admin'
+DELETE  /api/classes/:id  roles:'super_admin', 'partner', 'school_admin'
+GET     /api/users  roles:'super_admin', 'partner', 'school_admin', 'teacher'
+POST    /api/users  roles:'super_admin', 'partner', 'school_admin'
+POST    /api/users/import  roles:'super_admin', 'partner', 'school_admin'
+GET     /api/users/:id  roles:'super_admin', 'partner', 'school_admin', 'teacher'
+PATCH   /api/users/:id  roles:'super_admin', 'partner', 'school_admin'
+POST    /api/users/:id/status  roles:'super_admin', 'partner', 'school_admin'
+POST    /api/users/:id/reset-password  roles:'super_admin', 'partner', 'school_admin'
+GET     /api/quizzes  
+POST    /api/quizzes  roles:'super_admin', 'teacher'
+GET     /api/quizzes/:id  
+PATCH   /api/quizzes/:id  roles:'super_admin', 'teacher'
+DELETE  /api/quizzes/:id  roles:'super_admin', 'teacher'
+POST    /api/quizzes/:id/attempts  roles:'student'
+GET     /api/quizzes/:id/attempts  
+GET     /api/assignments  
+POST    /api/assignments  roles:'teacher', 'school_admin'
+GET     /api/assignments/:id  
+PATCH   /api/assignments/:id  roles:'teacher', 'school_admin'
+DELETE  /api/assignments/:id  roles:'teacher', 'school_admin'
+POST    /api/assignments/:id/submit  roles:'student'
+POST    /api/submissions/:id/grade  roles:'teacher', 'school_admin'
+POST    /api/uploads  
+GET     /api/courses  
+POST    /api/courses  roles:'super_admin'
+GET     /api/courses/:id  
+PATCH   /api/courses/:id  roles:'super_admin'
+DELETE  /api/courses/:id  roles:'super_admin'
+POST    /api/courses/:id/chapters  roles:'super_admin'
+PATCH   /api/chapters/:id  roles:'super_admin'
+DELETE  /api/chapters/:id  roles:'super_admin'
+POST    /api/courses/:id/chapters/reorder  roles:'super_admin'
+POST    /api/chapters/:id/units  roles:'super_admin'
+POST    /api/chapters/:id/units/reorder  roles:'super_admin'
+GET     /api/units/:id  
+PATCH   /api/units/:id  roles:'super_admin'
+DELETE  /api/units/:id  roles:'super_admin'
+POST    /api/units/:id/complete  roles:'student'
+DELETE  /api/units/:id/complete  roles:'student'
+GET     /api/course-grants  roles:'super_admin', 'partner', 'school_admin'
+POST    /api/course-grants  roles:'super_admin', 'partner'
+DELETE  /api/course-grants/:id  roles:'super_admin', 'partner'
+GET     /api/class-courses  
+POST    /api/class-courses  roles:'super_admin', 'partner', 'school_admin'
+PATCH   /api/class-courses/:id  roles:'super_admin', 'partner', 'school_admin'
+DELETE  /api/class-courses/:id  roles:'super_admin', 'partner', 'school_admin'
+GET     /api/progress/classes/:id  roles:'super_admin', 'partner', 'school_admin', 'teacher'
+GET     /api/progress/students/:id  
+GET     /api/dashboard  
+GET     /api/reports/students/:id  
+GET     /api/reports/schools/:id  roles:'super_admin', 'partner', 'school_admin'
+GET     /api/attendance  
+PUT     /api/attendance  roles:'teacher', 'school_admin'
+GET     /api/remarks  
+POST    /api/remarks  roles:'teacher', 'school_admin'
+DELETE  /api/remarks/:id  roles:'teacher', 'school_admin'
+GET     /api/announcements  
+POST    /api/announcements  roles:'super_admin', 'partner', 'school_admin', 'teacher'
+DELETE  /api/announcements/:id  roles:'super_admin', 'partner', 'school_admin', 'teacher'
+GET     /api/events  
+POST    /api/events  roles:'super_admin', 'school_admin', 'teacher'
+DELETE  /api/events/:id  roles:'super_admin', 'school_admin', 'teacher'
