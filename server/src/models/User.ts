@@ -31,10 +31,21 @@ const userSchema = new Schema(
     consent: {
       assessment: { type: Boolean, default: false },
       media: { type: Boolean, default: false },
+      psychometric: { type: Boolean, default: false }, // Know Yourself profile, asked for separately
+      cognitive: { type: Boolean, default: false }, // Thinking Puzzles (cognitive profile), asked for separately
       at: Date,
       by: { type: Schema.Types.ObjectId, ref: 'User' },
     },
     interests: [String], // the child's own interests, used by the Learning GPS
+    // How the person likes to learn (set by them, or by a parent for a child)
+    prefs: {
+      language: { type: String, default: 'en' }, // lessons and NanoBot answers in this language when available
+      calm: { type: Boolean, default: false }, // calm mode: no animations, softer colours, fewer extras
+      readAloud: { type: Boolean, default: false }, // read answers and lesson parts aloud
+      textSize: { type: String, enum: ['normal', 'large', 'xlarge'], default: 'normal' },
+      learnWay: { type: String, enum: ['mixed', 'reading', 'listening', 'pictures'], default: 'mixed' },
+      buddy: { type: String, default: 'nano' }, // NanoBot character the student chose (lib/buddies.ts)
+    },
     gender: { type: String, enum: ['male', 'female', 'other', ''], default: '' },
 
     // Parent: linked children (student user ids)
@@ -44,6 +55,7 @@ const userSchema = new Schema(
     // Teacher
     subjects: [String],
     qualification: String,
+    isCounsellor: { type: Boolean, default: false }, // school counsellor: reviews psychometric profiles and conversation requests
   },
   { timestamps: true },
 );

@@ -138,19 +138,19 @@ describe('skills mission', () => {
     expect(autoScore({ type: 'multiple', options: [{ score: 0.5 }, { score: 0.5 }, { score: 0 }] }, { selected: [0, 1] })).toBe(1);
     expect(autoScore({ type: 'open' }, { text: 'hi' })).toBeNull();
     const s = skillScoresFor([{ _id: 'a', skills: [{ skillId: 'k', weight: 1 }] }, { _id: 'b', skills: [{ skillId: 'k', weight: 3 }] }], [{ itemId: 'a', score: 1 }, { itemId: 'b', score: 0 }]);
-    expect(s[0]).toEqual({ skillId: 'k', score: 25, level: 'emerging' });
+    expect(s[0]).toEqual({ skillId: 'k', score: 25, level: 'seed', answered: 2 });
   });
 
   it('runs from admin setup to a scored skill profile', async () => {
     const admin = as(t.admin);
     const crit = await admin.post('/api/skills', { name: 'Critical thinking' });
     const collab = await admin.post('/api/skills', { name: 'Collaboration' });
-    const i1 = await admin.post('/api/assessment-items', { type: 'single', prompt: 'Which is a fair test?', options: [{ text: 'Change one thing', score: 1 }, { text: 'Change everything', score: 0 }], skills: [{ skillId: crit.body._id, weight: 1 }], bands: ['junior'] });
-    const i2 = await admin.post('/api/assessment-items', { type: 'scale', prompt: 'I listen to others in a group', scaleLabels: ['Never', 'Rarely', 'Sometimes', 'Often', 'Always'], skills: [{ skillId: collab.body._id, weight: 1 }], bands: ['junior'] });
-    const i3 = await admin.post('/api/assessment-items', { type: 'open', prompt: 'Describe a problem you solved with friends', rubric: ['a', 'b', 'c', 'd'], skills: [{ skillId: collab.body._id, weight: 1 }], bands: ['junior'] });
+    const i1 = await admin.post('/api/assessment-items', { type: 'single', prompt: 'Which is a fair test?', options: [{ text: 'Change one thing', score: 1 }, { text: 'Change everything', score: 0 }], skills: [{ skillId: crit.body._id, weight: 1 }], grades: [6] });
+    const i2 = await admin.post('/api/assessment-items', { type: 'scale', prompt: 'I listen to others in a group', scaleLabels: ['Never', 'Rarely', 'Sometimes', 'Often', 'Always'], skills: [{ skillId: collab.body._id, weight: 1 }], grades: [6] });
+    const i3 = await admin.post('/api/assessment-items', { type: 'open', prompt: 'Describe a problem you solved with friends', rubric: ['a', 'b', 'c', 'd'], skills: [{ skillId: collab.body._id, weight: 1 }], grades: [6] });
     expect([i1.status, i2.status, i3.status]).toEqual([201, 201, 201]);
-    expect((await admin.post('/api/assessment-items', { type: 'single', prompt: 'Only one', options: [{ text: 'x', score: 1 }], skills: [{ skillId: crit.body._id, weight: 1 }], bands: ['junior'] })).status).toBe(400);
-    const form = await admin.post('/api/assessment-forms', { title: 'Quest mission', band: 'junior', itemIds: [i1.body._id, i2.body._id, i3.body._id] });
+    expect((await admin.post('/api/assessment-items', { type: 'single', prompt: 'Only one', options: [{ text: 'x', score: 1 }], skills: [{ skillId: crit.body._id, weight: 1 }], grades: [6] })).status).toBe(400);
+    const form = await admin.post('/api/assessment-forms', { title: 'Quest mission', grade: 6, itemIds: [i1.body._id, i2.body._id, i3.body._id] });
     expect((await admin.post(`/api/assessment-forms/${form.body._id}/publish`)).status).toBe(200);
 
     const s = as(t.student); // Grade 6 → junior band; consent was given above

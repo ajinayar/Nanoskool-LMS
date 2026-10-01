@@ -13,9 +13,11 @@ import { cleanHtml } from '../../lib/sanitize.js';
 import { body, escapeRegex, idParam, objectId, pageQuery, query } from '../../lib/validate.js';
 import { authenticate, currentUser, requireRole } from '../../middleware/auth.js';
 import { unitOutcome } from '../../lib/outcomes.js';
+import { applyTranslation, type TContent } from '../../lib/translate.js';
 import { Types } from 'mongoose';
 import {
   Chapter,
+  CheckAnswer,
   ClassCourse,
   ClassSection,
   Course,
@@ -203,10 +205,73 @@ curriculumRouter.post('/courses/:id/chapters/reorder', requireRole('super_admin'
 
 /* ---------------------------------------------------------------- Units */
 
+const imageUrl = z.string().trim().max(1000).refine((u) => u === '' || /^https:\/\//.test(u) || /^\/files\//.test(u), 'Images must be an https:// link or an uploaded file');
+export const slideSchema = z.object({
+  _id: objectId.optional(),
+  layout: z.enum(['title', 'section', 'bullets', 'image-right', 'image-full', 'two-column', 'quote', 'icons', 'steps', 'fact', 'quiz']),
+  title: z.string().trim().max(300).optional(),
+  subtitle: z.string().trim().max(600).optional(),
+  bullets: z.array(z.string().trim().max(400)).max(12).optional(),
+  bullets2: z.array(z.string().trim().max(400)).max(12).optional(),
+  imageUrl: imageUrl.optional(),
+  imageAlt: z.string().trim().max(300).optional(),
+  notes: z.string().trim().max(4000).optional(),
+  background: z.string().trim().regex(/^(#[0-9a-fA-F]{6})?$/).optional(),
+  icon: z.string().trim().max(40).optional(), // built-in graphic (lib/slideIcons.ts)
+  icons: z.array(z.string().trim().max(40)).max(12).optional(), // one per point (icons / steps layouts)
+  answer: z.number().int().min(0).max(11).optional(), // quiz slide: index of the right option
+});
+
+const httpsOrFile = z.string().trim().max(500).refine((u) => u === '' || /^https:\/\//.test(u) || /^\/files\//.test(u), 'Use an uploaded file or an https:// link');
+const blockBody = z.object({
+  _id: objectId.optional(),
+  kind: z.enum(['text', 'video', 'presentation', 'activity', 'pdf', 'link', 'motion', 'gallery', 'sim3d', 'check']),
+  title: z.string().trim().max(200).optional(),
+  body: z.string().max(300_000).optional(),
+  videoUrl: z.string().trim().max(500).optional(),
+  fileUrl: z.string().trim().max(500).optional(),
+  linkUrl: z.string().trim().max(500).optional(),
+  motionUrl: httpsOrFile.optional(),
+  motionLoop: z.boolean().optional(),
+  simUrl: httpsOrFile.optional(),
+  deckTheme: z.string().trim().max(40).optional(),
+  slides: z.array(slideSchema).max(80).optional(),
+  gallery: z
+    .array(z.object({ _id: z.string().optional(), url: httpsOrFile.refine((u) => u !== '', 'Add the picture'), caption: z.string().trim().max(300).optional(), alt: z.string().trim().max(300).optional() }))
+    .max(60)
+    .optional(),
+  question: z.string().trim().max(1000).optional(),
+  choices: z.array(z.object({ _id: z.string().optional(), text: z.string().trim().max(300), correct: z.boolean().default(false) })).max(6).optional(),
+  explain: z.string().trim().max(2000).optional(),
+  help: z.string().max(20_000).optional(),
+});
+const BLOCK_TO_TYPE: Record<string, string> = { text: 'lesson', check: 'lesson' };
+/** Blocks → the unit's main type (first block) and a plain body of all text, for NanoBot, search and the mobile app. */
+function withBlocks<T extends { blocks?: z.infer<typeof blockBody>[]; body?: string; type?: string }>(data: T): T {
+  if (!data.blocks) return data;
+  const blocks = data.blocks.map((b) => ({ ...b, body: b.body !== undefined ? cleanHtml(b.body) : undefined, help: b.help !== undefined ? cleanHtml(b.help) : undefined }));
+  const text = blocks
+    .filter((b) => b.body)
+    .map((b) => `${b.title ? `<h2>${b.title.replace(/[<>&]/g, '')}</h2>` : ''}${b.body}`)
+    .join('');
+  const first = blocks[0]?.kind;
+  return { ...data, blocks, body: text, ...(first ? { type: BLOCK_TO_TYPE[first] ?? first } : {}) };
+}
+
 const unitBody = z.object({
   title: z.string().trim().min(1).max(200),
+  blocks: z.array(blockBody).max(60).optional(),
   summary: z.string().max(1000).optional(),
-  type: z.enum(['lesson', 'video', 'pdf', 'activity', 'link']).optional(),
+  type: z.enum(['lesson', 'video', 'pdf', 'activity', 'link', 'presentation', 'motion', 'gallery', 'sim3d']).optional(),
+  simUrl: z.string().trim().max(500).refine((u) => u === '' || /^https:\/\//.test(u) || /^\/files\//.test(u), 'Use an uploaded file or an https:// link').optional(),
+  motionUrl: z.string().trim().max(500).refine((u) => u === '' || /^https:\/\//.test(u) || /^\/files\//.test(u), 'Use an uploaded file or an https:// link').optional(),
+  motionLoop: z.boolean().optional(),
+  gallery: z
+    .array(z.object({ _id: z.string().optional(), url: z.string().trim().max(500).refine((u) => /^https:\/\//.test(u) || /^\/files\//.test(u), 'Use an uploaded image or an https:// link'), caption: z.string().trim().max(300).optional(), alt: z.string().trim().max(300).optional() }))
+    .max(60)
+    .optional(),
+  deckTheme: z.string().trim().max(40).optional(),
+  slides: z.array(slideSchema).max(80).optional(),
   body: z.string().max(500_000).optional(),
   videoUrl: z.string().trim().max(500).optional(),
   fileUrl: z.string().trim().max(500).optional(),
@@ -269,10 +334,10 @@ async function checkJourney(data: z.infer<typeof unitBody> | Partial<z.infer<typ
 curriculumRouter.post('/chapters/:id/units', requireRole('super_admin'), async (req, res) => {
   const chapter = await Chapter.findById(idParam(req)).lean();
   if (!chapter) throw notFound('Chapter');
-  const data = body(req, unitBody);
+  const data = withBlocks(body(req, unitBody));
   await checkJourney(data, chapter.courseId);
   const position = data.position ?? (await Unit.countDocuments({ chapterId: chapter._id }));
-  const unit = await Unit.create({ ...data, body: cleanHtml(data.body), courseId: chapter.courseId, chapterId: chapter._id, position });
+  const unit = await Unit.create({ ...data, body: data.blocks ? data.body : cleanHtml(data.body), courseId: chapter.courseId, chapterId: chapter._id, position });
   res.status(201).json(unit);
 });
 
@@ -284,8 +349,15 @@ curriculumRouter.post('/chapters/:id/units/reorder', requireRole('super_admin'),
 
 curriculumRouter.get('/units/:id', async (req, res) => {
   const me = currentUser(req);
-  const unit = await Unit.findById(idParam(req)).lean();
-  if (!unit) throw notFound('Unit');
+  const raw = await Unit.findById(idParam(req)).lean();
+  if (!raw) throw notFound('Unit');
+  // Language: ?lang=xx, else the person's own preference (staff editing in the course studio always get English)
+  const approved = (raw.translations ?? []).filter((t) => t.status === 'approved');
+  const asked = typeof req.query.lang === 'string' ? req.query.lang : me.role === 'super_admin' ? 'en' : ((await User.findById(me.id).select('prefs.language').lean())?.prefs?.language ?? 'en');
+  const tr = approved.find((t) => t.lang === asked);
+  const { translations: _all, ...base } = raw;
+  const unit = tr ? applyTranslation(base as never, { title: tr.title ?? base.title, summary: tr.summary ?? undefined, blocks: (tr.blocks as TContent['blocks']) ?? [], objectives: (tr.objectives as TContent['objectives']) ?? [] }) : base;
+  const languages = ['en', ...approved.map((t) => t.lang)];
   await assertCourseAccess(me, String(unit.courseId));
   const [course, chapter, siblings, done] = await Promise.all([
     Course.findById(unit.courseId).select('title status').lean(),
@@ -303,8 +375,24 @@ curriculumRouter.get('/units/:id', async (req, res) => {
   const tools = (unit.activities ?? []).some((a) => a.toolId)
     ? await ToolIntegration.find({ _id: { $in: unit.activities!.map((a) => a.toolId).filter(Boolean) } }).select('name kind description active launchUrl').lean()
     : [];
+  // Speaker notes are for teachers only
+  const pupil = me.role === 'student' || me.role === 'parent';
+  const slides = pupil ? (unit.slides ?? []).map(({ notes: _n, ...rest }) => rest) : unit.slides;
+  // Pupils never get quick-check answers or teacher notes; they get which checks they have passed
+  const blocks = pupil
+    ? (unit.blocks ?? []).map(({ explain: _e, help: _h, ...b }) => ({ ...b, slides: (b.slides ?? []).map(({ notes: _n, ...rest }) => rest), choices: b.choices?.map((c) => ({ _id: c._id, text: c.text })) }))
+    : unit.blocks;
+  const checks =
+    me.role === 'student'
+      ? Object.fromEntries((await CheckAnswer.find({ studentId: me.id, unitId: unit._id }).select('blockId passed attempts').lean()).map((c) => [c.blockId, { passed: c.passed, attempts: c.attempts }]))
+      : undefined;
   res.json({
     ...unit,
+    slides,
+    blocks,
+    checks,
+    lang: tr ? tr.lang : 'en',
+    languages,
     tools: tools.map((t) => ({ _id: t._id, name: t.name, kind: t.kind, description: t.description, connected: t.active && !!t.launchUrl })),
     outcome,
     course,
@@ -316,8 +404,9 @@ curriculumRouter.get('/units/:id', async (req, res) => {
 });
 
 curriculumRouter.patch('/units/:id', requireRole('super_admin'), async (req, res) => {
-  const data = body(req, unitBody.partial());
-  if (data.body !== undefined) data.body = cleanHtml(data.body);
+  const raw = body(req, unitBody.partial());
+  if (raw.body !== undefined && !raw.blocks) raw.body = cleanHtml(raw.body);
+  const data = withBlocks(raw);
   const current = await Unit.findById(idParam(req)).select('courseId objectives').lean();
   if (!current) throw notFound('Unit');
   await checkJourney(data, current.courseId, current);

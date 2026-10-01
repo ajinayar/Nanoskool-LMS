@@ -1,18 +1,22 @@
-import { Alert, Box, Button, Chip, IconButton, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Chip, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import QuizOutlined from '@mui/icons-material/QuizOutlined';
+import LibraryBooksOutlined from '@mui/icons-material/LibraryBooksOutlined';
+import LockClockOutlined from '@mui/icons-material/LockClockOutlined';
+import EditNoteOutlined from '@mui/icons-material/EditNoteOutlined';
+import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
+import dayjs from 'dayjs';
+import { IconTile, MiniStat, MiniStats, RowMenu, Segmented, StatusDot, Toolbar, WhenCell } from '@/components/ListKit';
 import Add from '@mui/icons-material/Add';
 import EditOutlined from '@mui/icons-material/EditOutlined';
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined';
-import CheckCircle from '@mui/icons-material/CheckCircle';
-import RadioButtonUnchecked from '@mui/icons-material/RadioButtonUnchecked';
-import CheckBoxOutlineBlank from '@mui/icons-material/CheckBoxOutlineBlank';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { refId, refName, type ClassCourse, type ClassSection, type Quiz, type QuizAttempt, type QuizSummary } from '@/api/types';
 import { useGet, useSend } from '@/lib/hooks';
-import { QuizEditor, emptyQuiz, quizPayload, validateQuiz, type QuizDraft } from '@/components/QuizEditor';
+import { QuestionReadout, QuizStudio, emptyQuiz, quizPayload, quizToDraft, validateQuiz, type QuizDraft } from '@/components/QuizEditor';
 import { CardGrid, ConfirmDialog, DataTable, Empty, Loading, ErrorState, PageHeader, QueryState, Section, StatCard, StatusChip, UserCell, fmtDate, fmtDateTime } from '@/components/ui';
-import { BackButton, ClassSelect, FilterBar, T, WideTable, toLocalInput, useMyClasses, SHOW_EMPTY } from './common';
+import { BackButton, ClassSelect, T, WideTable, toLocalInput, useMyClasses, SHOW_EMPTY } from './common';
 
 const isClassQuiz = (q: QuizSummary) => !!q.classId;
 
@@ -48,7 +52,7 @@ function DeleteQuizDialog({ quiz, onClose, onDeleted }: { quiz: QuizSummary | nu
 export function TeacherQuizzesPage() {
   const navigate = useNavigate();
   const [classId, setClassId] = useState('');
-  const [kind, setKind] = useState<'' | 'class' | 'course'>('');
+  const [kind, setKind] = useState<'' | 'class' | 'course' | 'draft'>('');
   const q = useGet<QuizSummary[]>('/quizzes', classId ? { classId } : undefined);
   const [del, setDel] = useState<QuizSummary | null>(null);
   return (
@@ -62,86 +66,122 @@ export function TeacherQuizzesPage() {
           </Button>
         }
       />
-      <Section title="All quizzes">
-        <FilterBar>
-            <ClassSelect value={classId} onChange={setClassId} allowAll="All classes" sx={{ minWidth: 150 }} />
-            <TextField select label="Type" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} sx={{ minWidth: 140 }} slotProps={SHOW_EMPTY}>
-              <MenuItem value="">All quizzes</MenuItem>
-              <MenuItem value="class">Class quizzes</MenuItem>
-              <MenuItem value="course">Course quizzes</MenuItem>
-            </TextField>
-          </FilterBar>
-        <QueryState q={q}>
-          {(rows) => (
-            <WideTable min={760}>
-            <DataTable
-              rows={rows.filter((x) => !kind || (kind === 'class') === isClassQuiz(x))}
-              onRowClick={(x) => navigate(`${T}/quizzes/${x._id}`)}
-              empty={<Empty title="No quizzes yet" hint="Create a class quiz to check what your students have learned." />}
-              columns={[
-                {
-                  key: 'title',
-                  label: 'Quiz',
-                  render: (x) => (
-                    <Box>
-                      <Typography sx={{ fontWeight: 600 }}>{x.title}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {x.questionCount} questions · {x.totalPoints} points{x.timeLimitMin ? ` · ${x.timeLimitMin} min` : ''}
-                      </Typography>
-                    </Box>
-                  ),
-                },
-                {
-                  key: 'for',
-                  label: 'For',
-                  render: (x) =>
-                    isClassQuiz(x) ? (
-                      <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
-                        <Chip size="small" color="primary" variant="outlined" label={refName(x.classId)} />
-                        {refName(x.courseId) && (
-                          <Typography variant="caption" color="text.secondary">
-                            {refName(x.courseId)}
-                          </Typography>
-                        )}
-                      </Stack>
-                    ) : (
-                      <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
-                        <Chip size="small" label="Course quiz" />
-                        <Typography variant="caption" color="text.secondary">
-                          {refName(x.courseId)}
-                        </Typography>
-                      </Stack>
-                    ),
-                },
-                { key: 'attempts', label: 'Attempts', render: (x) => `${x.maxAttempts ?? 1} allowed` },
-                { key: 'due', label: 'Closes', render: (x) => (x.dueDate ? fmtDateTime(x.dueDate) : '—') },
-                { key: 'status', label: 'Status', render: (x) => <StatusChip status={x.status} /> },
-                {
-                  key: 'act',
-                  label: '',
-                  align: 'right',
-                  render: (x) =>
-                    isClassQuiz(x) && (
-                      <Stack direction="row" sx={{ justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
-                        <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => navigate(`${T}/quizzes/${x._id}/edit`)} aria-label="Edit quiz">
-                            <EditOutlined fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton size="small" onClick={() => setDel(x)} aria-label="Delete quiz">
-                            <DeleteOutlined fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    ),
-                },
-              ]}
-            />
-            </WideTable>
-          )}
-        </QueryState>
-      </Section>
+      <QueryState q={q}>
+        {(rows) => {
+          const now = dayjs();
+          const cls = rows.filter(isClassQuiz);
+          const open = rows.filter((x) => x.status === 'published' && (!x.dueDate || dayjs(x.dueDate).isAfter(now)));
+          const closing = open.filter((x) => x.dueDate && dayjs(x.dueDate).diff(now, 'day') < 7).length;
+          const drafts = rows.filter((x) => x.status === 'draft').length;
+          const shown = rows.filter((x) => (kind === 'draft' ? x.status === 'draft' : !kind || (kind === 'class') === isClassQuiz(x)));
+          return (
+            <>
+              <MiniStats>
+                <MiniStat tone="indigo" icon={<QuizOutlined />} value={cls.length} label="My class quizzes" active={kind === 'class'} onClick={() => setKind(kind === 'class' ? '' : 'class')} />
+                <MiniStat tone="teal" icon={<LibraryBooksOutlined />} value={rows.length - cls.length} label="Course quizzes" hint="From Nanoskool courses" active={kind === 'course'} onClick={() => setKind(kind === 'course' ? '' : 'course')} />
+                <MiniStat tone="orange" icon={<LockClockOutlined />} value={closing} label="Closing this week" />
+                <MiniStat tone="grey" icon={<EditNoteOutlined />} value={drafts} label="Drafts" active={kind === 'draft'} onClick={() => setKind(kind === 'draft' ? '' : 'draft')} />
+              </MiniStats>
+              <Card>
+                <CardContent>
+                  <Toolbar right={`${shown.length} of ${rows.length} shown`}>
+                    <ClassSelect value={classId} onChange={setClassId} allowAll="All classes" />
+                    <Segmented
+                      label="Quiz type"
+                      value={kind}
+                      onChange={setKind}
+                      options={[
+                        { value: '', label: 'All', count: rows.length },
+                        { value: 'class', label: 'Class quizzes', count: cls.length },
+                        { value: 'course', label: 'Course quizzes', count: rows.length - cls.length },
+                        ...(drafts ? [{ value: 'draft' as const, label: 'Drafts', count: drafts }] : []),
+                      ]}
+                    />
+                  </Toolbar>
+                  <WideTable min={800}>
+                    <DataTable
+                      rows={shown}
+                      onRowClick={(x) => navigate(`${T}/quizzes/${x._id}`)}
+                      empty={<Empty title="No quizzes here" hint="Create a class quiz to check what your students have learned." />}
+                      columns={[
+                        {
+                          key: 'title',
+                          label: 'Quiz',
+                          render: (x) => (
+                            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', minWidth: 0 }}>
+                              <IconTile tone={isClassQuiz(x) ? 'indigo' : 'teal'}>{isClassQuiz(x) ? <QuizOutlined /> : <LibraryBooksOutlined />}</IconTile>
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ fontWeight: 700 }}>{x.title}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {x.questionCount} questions · {x.totalPoints} points{x.timeLimitMin ? ` · ${x.timeLimitMin} min` : ' · no time limit'}
+                                </Typography>
+                              </Box>
+                            </Stack>
+                          ),
+                        },
+                        {
+                          key: 'for',
+                          label: 'For',
+                          render: (x) =>
+                            isClassQuiz(x) ? (
+                              <Box>
+                                <Chip size="small" variant="outlined" label={refName(x.classId)} sx={{ fontWeight: 650 }} />
+                                {refName(x.courseId) && (
+                                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                    {refName(x.courseId)}
+                                  </Typography>
+                                )}
+                              </Box>
+                            ) : (
+                              <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                                  {refName(x.courseId)}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  Course quiz · all your classes on this course
+                                </Typography>
+                              </Box>
+                            ),
+                        },
+                        {
+                          key: 'attempts',
+                          label: 'Tries',
+                          render: (x) => (
+                            <Typography variant="body2" sx={{ fontWeight: 650 }}>
+                              {(x.maxAttempts ?? 1) === 1 ? '1 try' : `${x.maxAttempts} tries`}
+                            </Typography>
+                          ),
+                        },
+                        { key: 'due', label: 'Closes', render: (x) => <WhenCell date={x.dueDate} empty="Always open" pastWord="Closed" /> },
+                        { key: 'status', label: 'Status', render: (x) => <StatusDot status={x.status} /> },
+                        {
+                          key: 'act',
+                          label: '',
+                          align: 'right',
+                          render: (x) => (
+                            <RowMenu
+                              label={`Actions for ${x.title}`}
+                              actions={[
+                                { label: 'See results', icon: <InsightsOutlined />, onClick: () => navigate(`${T}/quizzes/${x._id}`) },
+                                ...(isClassQuiz(x)
+                                  ? [
+                                      { label: 'Edit', icon: <EditOutlined />, onClick: () => navigate(`${T}/quizzes/${x._id}/edit`) },
+                                      { label: 'Delete', icon: <DeleteOutlined />, onClick: () => setDel(x), danger: true },
+                                    ]
+                                  : []),
+                              ]}
+                            />
+                          ),
+                        },
+                      ]}
+                    />
+                  </WideTable>
+                </CardContent>
+              </Card>
+            </>
+          );
+        }}
+      </QueryState>
       <DeleteQuizDialog quiz={del} onClose={() => setDel(null)} />
     </>
   );
@@ -149,17 +189,7 @@ export function TeacherQuizzesPage() {
 
 /* ----------------------------------------------------------- Create/edit */
 
-const draftFrom = (q: Quiz): QuizDraft => ({
-  title: q.title,
-  description: q.description ?? '',
-  chapterId: q.chapterId,
-  timeLimitMin: q.timeLimitMin ?? null,
-  maxAttempts: q.maxAttempts ?? 1,
-  // The editor expects local "YYYY-MM-DDTHH:mm"
-  dueDate: q.dueDate ? toLocalInput(q.dueDate) : null,
-  status: q.status,
-  questions: q.questions.map((x) => ({ ...x, correct: x.correct ?? [], explanation: x.explanation ?? '' })),
-});
+const draftFrom = (q: Quiz): QuizDraft => quizToDraft(q, toLocalInput);
 
 export function TeacherQuizEditPage() {
   const { id } = useParams();
@@ -200,12 +230,21 @@ export function TeacherQuizEditPage() {
   if (editing && existing.error) return <ErrorState error={existing.error} />;
   if (editing && existing.data && !existing.data.editable) return <Alert severity="info">This is a Nanoskool course quiz, so it cannot be edited here.</Alert>;
 
+  const back = () => navigate(editing ? `${T}/quizzes/${id}` : `${T}/quizzes`);
   return (
-    <Box sx={{ maxWidth: 960 }}>
-      <BackButton to={editing ? `${T}/quizzes/${id}` : `${T}/quizzes`}>{editing ? 'Back to quiz' : 'Quizzes'}</BackButton>
-      <PageHeader title={editing ? 'Edit quiz' : 'New class quiz'} subtitle="Students see one question at a time and get their score straight away" />
-      <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
+    <QuizStudio
+      heading={editing ? `Edit quiz · ${refName(existing.data?.classId)}` : 'New class quiz'}
+      draft={draft}
+      onChange={setDraft}
+      showDueDate
+      courseId={courseId || undefined}
+      onClose={back}
+      onSave={submit}
+      saving={save.isPending}
+      saveLabel={draft.status === 'published' ? (editing ? 'Save' : 'Publish') : 'Save draft'}
+      error={err || (save.error ? errorMessage(save.error) : null)}
+      extraSettings={
+        <>
           {editing ? (
             <TextField label="Class" value={refName(existing.data?.classId)} disabled helperText="The class cannot be changed" />
           ) : (
@@ -218,7 +257,15 @@ export function TeacherQuizEditPage() {
               required
             />
           )}
-          <TextField select label="Course (optional)" value={courses.data ? courseId : ''} onChange={(e) => setCourseId(e.target.value)} disabled={!classId} slotProps={SHOW_EMPTY}>
+          <TextField
+            select
+            label="Course (optional)"
+            value={courses.data ? courseId : ''}
+            onChange={(e) => setCourseId(e.target.value)}
+            disabled={!classId}
+            slotProps={SHOW_EMPTY}
+            helperText={courseId ? 'AI can write questions from this course’s lessons' : undefined}
+          >
             <MenuItem value="">Not linked to a course</MenuItem>
             {(courses.data ?? []).map((cc) => (
               <MenuItem key={cc._id} value={refId(cc.courseId)}>
@@ -226,26 +273,9 @@ export function TeacherQuizEditPage() {
               </MenuItem>
             ))}
           </TextField>
-        </Stack>
-        <QuizEditor value={draft} onChange={setDraft} showDueDate />
-      </Paper>
-      {err && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {err}
-        </Alert>
-      )}
-      {save.error ? (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {errorMessage(save.error)}
-        </Alert>
-      ) : null}
-      <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', position: 'sticky', bottom: 0, py: 1.5, bgcolor: 'background.default' }}>
-        <Button onClick={() => navigate(-1)}>Cancel</Button>
-        <Button variant="contained" onClick={submit} disabled={save.isPending}>
-          {save.isPending ? 'Saving…' : draft.status === 'published' ? (editing ? 'Save and keep published' : 'Publish quiz') : 'Save draft'}
-        </Button>
-      </Stack>
-    </Box>
+        </>
+      }
+    />
   );
 }
 
@@ -258,33 +288,7 @@ export function QuizQuestions({ quiz }: { quiz: Quiz }) {
       {hidden && <Alert severity="info">Correct answers for Nanoskool course quizzes are hidden so students cannot see them.</Alert>}
       {quiz.questions.length === 0 && <Empty title="No questions yet" />}
       {quiz.questions.map((x, i) => (
-        <Paper key={x._id ?? i} variant="outlined" sx={{ p: 2 }}>
-          <Stack direction="row" spacing={1} sx={{ mb: 1, justifyContent: 'space-between' }}>
-            <Typography sx={{ fontWeight: 650 }}>
-              {i + 1}. {x.text}
-            </Typography>
-            <Chip size="small" variant="outlined" label={`${x.points} pt${x.points === 1 ? '' : 's'}`} />
-          </Stack>
-          <Stack spacing={0.5}>
-            {x.options.map((o, oi) => {
-              const right = x.correct?.includes(oi);
-              const Icon = right ? CheckCircle : x.type === 'multiple' ? CheckBoxOutlineBlank : RadioButtonUnchecked;
-              return (
-                <Stack key={oi} direction="row" spacing={1} sx={{ alignItems: 'center', color: right ? 'success.main' : 'text.primary' }}>
-                  <Icon fontSize="small" color={right ? 'success' : 'disabled'} />
-                  <Typography variant="body2" sx={{ fontWeight: right ? 650 : 400 }}>
-                    {o}
-                  </Typography>
-                </Stack>
-              );
-            })}
-          </Stack>
-          {x.explanation && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Explanation: {x.explanation}
-            </Typography>
-          )}
-        </Paper>
+        <QuestionReadout key={x._id ?? i} q={x} index={i} />
       ))}
     </Stack>
   );

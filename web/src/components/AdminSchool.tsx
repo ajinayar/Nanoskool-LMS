@@ -83,7 +83,14 @@ export function SchoolFields({ value, onChange, mode, creating }: { value: Schoo
         <TextField label="Short code" value={value.code} onChange={(e) => set({ code: e.target.value.toUpperCase() })} helperText="Used in student usernames" sx={{ flex: 1 }} slotProps={{ htmlInput: { maxLength: 20 } }} />
       </Stack>
       {mode === 'admin' && (
-        <TextField select label="Partner" value={value.partnerId ?? ''} onChange={(e) => set({ partnerId: e.target.value })} slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }} helperText={!creating ? 'Moving a school to another partner changes which partner courses it receives' : undefined}>
+        <TextField
+          select
+          label="Partner"
+          value={value.partnerId ?? ''}
+          onChange={(e) => set({ partnerId: e.target.value })}
+          slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+          helperText={!creating ? 'Moving a school to another partner changes which partner courses it receives' : undefined}
+        >
           <MenuItem value="">No partner (direct school)</MenuItem>
           {(partners.data?.items ?? []).map((p) => (
             <MenuItem key={p._id} value={p._id}>
@@ -168,7 +175,9 @@ export function LogoEditor({ url, onChange }: { url?: string; onChange: (url: st
 export function SchoolProfileForm({ school, mode }: { school: School; mode: SchoolMode }) {
   const [d, setD] = useState<SchoolDraft>(() => schoolDraft(school));
   const [err, setErr] = useState<string | null>(null);
-  useEffect(() => setD(schoolDraft(school)), [school]);
+  useEffect(() => {
+    setD(schoolDraft(school));
+  }, [school]);
   const { reload } = useAuth();
   const save = useSend<Record<string, unknown>>('patch', `/schools/${school._id}`, {
     success: 'School details saved',
@@ -351,13 +360,19 @@ function SchoolCourses({ school, mode }: { school: School; mode: 'admin' | 'part
   const [open, setOpen] = useState(false);
   const [courseId, setCourseId] = useState('');
   const [revoke, setRevoke] = useState<CourseGrant | null>(null);
-  const grant = useSend<{ courseId: string; schoolId: string }>('post', '/course-grants', { success: 'Course granted to the school', invalidate: ['/course-grants', '/courses', '/dashboard'], onSuccess: () => { setOpen(false); setCourseId(''); } });
+  const grant = useSend<{ courseId: string; schoolId: string }>('post', '/course-grants', {
+    success: 'Course granted to the school',
+    invalidate: ['/course-grants', '/courses', '/dashboard'],
+    onSuccess: () => {
+      setOpen(false);
+      setCourseId('');
+    },
+  });
   const remove = useSend<string>('delete', (id) => `/course-grants/${id}`, { success: 'Access removed', invalidate: ['/course-grants', '/courses', '/dashboard'], onSuccess: () => setRevoke(null) });
 
   const directIds = new Set((direct.data ?? []).map((g) => refId(g.courseId)));
   const partnerGrants = (viaPartner.data ?? []).filter((g) => g.partnerId);
-  const options: { _id: string; title: string; status?: string }[] =
-    mode === 'admin' ? (allCourses.data?.items ?? []) : partnerGrants.map((g) => ({ _id: refId(g.courseId), title: g.courseId.title, status: g.courseId.status }));
+  const options: { _id: string; title: string; status?: string }[] = mode === 'admin' ? (allCourses.data?.items ?? []) : partnerGrants.map((g) => ({ _id: refId(g.courseId), title: g.courseId.title, status: g.courseId.status }));
   const available = options.filter((c) => !directIds.has(c._id));
   const classCount = (cid: string) => (inUse.data ?? []).filter((x) => refId(x.courseId) === cid).length;
 
@@ -377,11 +392,28 @@ function SchoolCourses({ school, mode }: { school: School; mode: 'admin' | 'part
               rows={rows}
               empty={<Empty title="No courses yet" hint="Grant a course so the school can assign it to classes." />}
               columns={[
-                { key: 'title', label: 'Course', render: (g) => <Typography component={RouterLink} to={`${base}/courses/${refId(g.courseId)}`} sx={{ color: 'primary.main', textDecoration: 'none', fontWeight: 600 }}>{g.courseId?.title ?? 'Deleted course'}</Typography> },
+                {
+                  key: 'title',
+                  label: 'Course',
+                  render: (g) => (
+                    <Typography component={RouterLink} to={`${base}/courses/${refId(g.courseId)}`} sx={{ color: 'primary.main', textDecoration: 'none', fontWeight: 600 }}>
+                      {g.courseId?.title ?? 'Deleted course'}
+                    </Typography>
+                  ),
+                },
                 { key: 'status', label: 'Status', render: (g) => (g.courseId ? <StatusChip status={g.courseId.status} /> : '—') },
                 { key: 'classes', label: 'Classes using it', align: 'right', render: (g) => classCount(refId(g.courseId)) },
                 { key: 'since', label: 'Granted', render: (g) => fmtDate(g.createdAt) },
-                { key: 'x', label: '', align: 'right', render: (g) => <Button size="small" color="error" startIcon={<DeleteOutlined />} onClick={() => setRevoke(g)}>Revoke</Button> },
+                {
+                  key: 'x',
+                  label: '',
+                  align: 'right',
+                  render: (g) => (
+                    <Button size="small" color="error" startIcon={<DeleteOutlined />} onClick={() => setRevoke(g)}>
+                      Revoke
+                    </Button>
+                  ),
+                },
               ]}
             />
           )}
@@ -398,7 +430,15 @@ function SchoolCourses({ school, mode }: { school: School; mode: 'admin' | 'part
                 rows={partnerGrants}
                 empty={<Empty title="The partner holds no courses yet" />}
                 columns={[
-                  { key: 'title', label: 'Course', render: (g) => <Typography component={RouterLink} to={`${base}/courses/${refId(g.courseId)}`} sx={{ color: 'primary.main', textDecoration: 'none', fontWeight: 600 }}>{g.courseId?.title ?? 'Deleted course'}</Typography> },
+                  {
+                    key: 'title',
+                    label: 'Course',
+                    render: (g) => (
+                      <Typography component={RouterLink} to={`${base}/courses/${refId(g.courseId)}`} sx={{ color: 'primary.main', textDecoration: 'none', fontWeight: 600 }}>
+                        {g.courseId?.title ?? 'Deleted course'}
+                      </Typography>
+                    ),
+                  },
                   { key: 'status', label: 'Status', render: (g) => (g.courseId ? <StatusChip status={g.courseId.status} /> : '—') },
                   { key: 'classes', label: 'Classes using it', align: 'right', render: (g) => classCount(refId(g.courseId)) },
                   { key: 'direct', label: '', render: (g) => (directIds.has(refId(g.courseId)) ? <Chip size="small" color="success" label="Granted to this school" /> : <Chip size="small" variant="outlined" label="Not granted yet" />) },

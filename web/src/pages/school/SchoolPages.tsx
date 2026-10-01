@@ -24,6 +24,7 @@ import { useGet } from '@/lib/hooks';
 import { DataTable, Empty, PageHeader, QueryState, Section, StatusChip, fromNow } from '@/components/ui';
 import { FilterSelect, SearchField, num } from '@/components/AdminCommon';
 import { SchoolProfileForm, SchoolReportView } from '@/components/AdminSchool';
+import { BuddySettings } from '@/components/BuddySettings';
 import { AnnouncementsWidget, EventsWidget } from '@/pages/shared/CommonPages';
 import { CourseThumb } from '@/pages/shared/CoursePages';
 import { AssignCourseDialog } from './SchoolClasses';
@@ -86,7 +87,11 @@ function Pill({ icon, label, value }: { icon: ReactNode; label: string; value: s
 }
 
 function ClassCard({ c }: { c: DashClass }) {
-  return <SchoolClassCard c={{ _id: c._id, name: c.name, grade: c.grade, section: c.section, teacherName: c.classTeacher?.name, teacherAvatar: c.classTeacher?.avatarUrl, studentCount: c.studentCount, courseCount: c.courseCount, attendanceMarked: c.attendanceMarked }} />;
+  return (
+    <SchoolClassCard
+      c={{ _id: c._id, name: c.name, grade: c.grade, section: c.section, teacherName: c.classTeacher?.name, teacherAvatar: c.classTeacher?.avatarUrl, studentCount: c.studentCount, courseCount: c.courseCount, attendanceMarked: c.attendanceMarked }}
+    />
+  );
 }
 
 export function SchoolDashboard() {
@@ -138,7 +143,13 @@ export function SchoolDashboard() {
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2, mb: 2 }}>
                 <ClarityStat color={CLARITY.lilac} icon={<SchoolOutlined />} label="Students" value={num(d.stats.students)} delta={d.growth ? deltaText(d.growth.studentsThisMonth, d.growth.studentsLastMonth, 'new this month') : undefined} />
                 <ClarityStat color={CLARITY.peach} icon={<EventAvailableOutlined />} label="Attendance today" value={a.percent == null ? '—' : `${a.percent}%`} delta={`${a.classesMarked} of ${a.classes} classes marked`} />
-                <ClarityStat color={CLARITY.sky} icon={<QuizOutlined />} label="Quiz average" value={d.growth?.quizAverage30d != null ? `${d.growth.quizAverage30d}%` : '—'} delta={d.growth ? `${num(d.growth.quizAttempts30d)} attempts in 30 days` : undefined} />
+                <ClarityStat
+                  color={CLARITY.sky}
+                  icon={<QuizOutlined />}
+                  label="Quiz average"
+                  value={d.growth?.quizAverage30d != null ? `${d.growth.quizAverage30d}%` : '—'}
+                  delta={d.growth ? `${num(d.growth.quizAttempts30d)} attempts in 30 days` : undefined}
+                />
               </Box>
               <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1, mb: 4 }}>
                 <Pill icon={<CoPresentOutlined />} label="Teachers" value={num(d.stats.teachers)} />
@@ -164,7 +175,16 @@ export function SchoolDashboard() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Search classes or teachers"
-                        slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchOutlined fontSize="small" /></InputAdornment> }, htmlInput: { 'aria-label': 'Search classes' } }}
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <SearchOutlined fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          },
+                          htmlInput: { 'aria-label': 'Search classes' },
+                        }}
                       />
                     </Box>
                     <Button startIcon={<Add />} component={RouterLink} to="/school/classes?new=1">
@@ -173,7 +193,14 @@ export function SchoolDashboard() {
                   </Stack>
                   {(d.classes ?? []).length === 0 ? (
                     <DashPanel title="Classes">
-                      <Empty title="No classes yet" action={<Button startIcon={<Add />} component={RouterLink} to="/school/classes?new=1">Create a class</Button>} />
+                      <Empty
+                        title="No classes yet"
+                        action={
+                          <Button startIcon={<Add />} component={RouterLink} to="/school/classes?new=1">
+                            Create a class
+                          </Button>
+                        }
+                      />
                     </DashPanel>
                   ) : view === 'board' ? (
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }, gap: 2, mb: 3 }}>
@@ -183,7 +210,10 @@ export function SchoolDashboard() {
                           <Box key={col.key} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
                             <Box sx={{ px: 0.25 }}>
                               <Typography sx={{ fontWeight: 600, fontSize: 15 }}>
-                                {col.label} <Box component="span" sx={{ color: CLARITY.ink3 }}>({rows.length})</Box>
+                                {col.label}{' '}
+                                <Box component="span" sx={{ color: CLARITY.ink3 }}>
+                                  ({rows.length})
+                                </Box>
                               </Typography>
                               <Typography sx={{ fontSize: 12.5, color: CLARITY.ink3 }}>{col.hint}</Typography>
                             </Box>
@@ -201,13 +231,37 @@ export function SchoolDashboard() {
                       })}
                     </Box>
                   ) : (
-                    <DashPanel title="Classes" action={<Button component={RouterLink} to="/school/classes">Manage</Button>}>
+                    <DashPanel
+                      title="Classes"
+                      action={
+                        <Button component={RouterLink} to="/school/classes">
+                          Manage
+                        </Button>
+                      }
+                    >
                       <DataTable
                         rows={classes}
                         onRowClick={(c) => navigate(`/school/classes/${c._id}`)}
                         columns={[
-                          { key: 'name', label: 'Class', render: (c) => <Typography variant="body2" sx={{ fontWeight: 600 }}>{c.name}</Typography> },
-                          { key: 'teacher', label: 'Class teacher', render: (c) => c.classTeacher?.name ?? <Typography variant="body2" color="warning.main">Not set</Typography> },
+                          {
+                            key: 'name',
+                            label: 'Class',
+                            render: (c) => (
+                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                {c.name}
+                              </Typography>
+                            ),
+                          },
+                          {
+                            key: 'teacher',
+                            label: 'Class teacher',
+                            render: (c) =>
+                              c.classTeacher?.name ?? (
+                                <Typography variant="body2" color="warning.main">
+                                  Not set
+                                </Typography>
+                              ),
+                          },
                           { key: 'att', label: 'Attendance today', render: (c) => <Tag label={c.attendanceMarked ? 'Marked' : 'Not marked'} tone={c.attendanceMarked ? 'ok' : 'warn'} /> },
                           { key: 'courses', label: 'Courses', align: 'right', render: (c) => c.courseCount },
                           { key: 'n', label: 'Students', align: 'right', render: (c) => c.studentCount },
@@ -241,10 +295,18 @@ export function SchoolDashboard() {
                   </DashPanel>
                   <DashPanel title="Quick actions">
                     <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
-                      <Button size="small" variant="outlined" startIcon={<CoPresentOutlined />} component={RouterLink} to="/school/teachers?new=1">Teacher</Button>
-                      <Button size="small" variant="outlined" startIcon={<FamilyRestroomOutlined />} component={RouterLink} to="/school/parents?new=1">Parent</Button>
-                      <Button size="small" variant="outlined" startIcon={<ClassOutlined />} component={RouterLink} to="/school/classes?new=1">Class</Button>
-                      <Button size="small" variant="outlined" startIcon={<CampaignOutlined />} component={RouterLink} to="/school/announcements">Announcement</Button>
+                      <Button size="small" variant="outlined" startIcon={<CoPresentOutlined />} component={RouterLink} to="/school/teachers?new=1">
+                        Teacher
+                      </Button>
+                      <Button size="small" variant="outlined" startIcon={<FamilyRestroomOutlined />} component={RouterLink} to="/school/parents?new=1">
+                        Parent
+                      </Button>
+                      <Button size="small" variant="outlined" startIcon={<ClassOutlined />} component={RouterLink} to="/school/classes?new=1">
+                        Class
+                      </Button>
+                      <Button size="small" variant="outlined" startIcon={<CampaignOutlined />} component={RouterLink} to="/school/announcements">
+                        Announcement
+                      </Button>
                     </Stack>
                   </DashPanel>
                   <EventsWidget events={d.upcomingEvents} />
@@ -274,8 +336,18 @@ export function SchoolCoursesPage() {
       <QueryState q={courses}>
         {(d) => {
           const items = d.items.filter((c) => !q || c.title.toLowerCase().includes(q.toLowerCase()));
-          if (!d.items.length) return <Card><Empty title="No courses yet" hint="Your partner or Nanoskool will make courses available to your school." /></Card>;
-          if (!items.length) return <Card><Empty title="No courses match your search" /></Card>;
+          if (!d.items.length)
+            return (
+              <Card>
+                <Empty title="No courses yet" hint="Your partner or Nanoskool will make courses available to your school." />
+              </Card>
+            );
+          if (!items.length)
+            return (
+              <Card>
+                <Empty title="No courses match your search" />
+              </Card>
+            );
           return (
             <Stack spacing={2}>
               {items.map((c) => {
@@ -381,7 +453,16 @@ export function SchoolAssignmentsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search assignments, courses or teachers"
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchOutlined fontSize="small" /></InputAdornment> }, htmlInput: { 'aria-label': 'Search assignments' } }}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchOutlined fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+              htmlInput: { 'aria-label': 'Search assignments' },
+            }}
           />
         </Box>
         <FilterSelect label="Class" value={classId} onChange={setClassId} allLabel="All classes" options={(classes.data ?? []).map((c) => ({ value: c._id, label: c.name }))} />
@@ -427,7 +508,12 @@ export function SchoolAssignmentsPage() {
                   label: 'Due',
                   nowrap: true,
                   render: (a) => {
-                    if (!a.dueDate) return <Typography variant="body2" sx={{ color: CLARITY.ink3 }}>No due date</Typography>;
+                    if (!a.dueDate)
+                      return (
+                        <Typography variant="body2" sx={{ color: CLARITY.ink3 }}>
+                          No due date
+                        </Typography>
+                      );
                     const late = new Date(a.dueDate).getTime() < now;
                     return (
                       <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -491,6 +577,9 @@ export function SchoolSettingsPage() {
           <>
             <Section title="School profile">
               <SchoolProfileForm school={s} mode="school" />
+            </Section>
+            <Section title="NanoBot buddies">
+              <BuddySettings school={s} />
             </Section>
             <Section title="Plan">
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>

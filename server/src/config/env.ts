@@ -44,11 +44,14 @@ const schema = z.object({
 
   // AI tutor. "mock" works offline; "nanobot" proxies the existing chatbot service;
   // "anthropic" calls the Claude API directly.
-  AI_PROVIDER: z.enum(['mock', 'nanobot', 'anthropic']).default('mock'),
+  AI_PROVIDER: z.enum(['mock', 'nanobot', 'anthropic', 'openai']).default('mock'),
   NANOBOT_URL: z.string().default('https://chatbot.nanoskool.in'),
   NANOBOT_SERVICE_SECRET: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default('claude-sonnet-4-5'),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().default('gpt-4.1'),
+  SETTINGS_SECRET: z.string().min(16).optional(), // encrypts API keys saved in AI settings (defaults to JWT_ACCESS_SECRET)
   AI_DEFAULT_MONTHLY_TOKENS: z.coerce.number().default(200000),
 });
 

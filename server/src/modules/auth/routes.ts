@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { z } from 'zod';
+import { LANG_CODES } from '../../lib/languages.js';
+import { BUDDY_KEYS } from '../../lib/buddies.js';
 import { env } from '../../config/env.js';
 import { checkPassword, hashPassword, issueResetLink, passwordSchema } from '../../lib/accounts.js';
 import { audit } from '../../lib/audit.js';
@@ -59,7 +61,7 @@ async function profile(userId: string) {
   const user = await User.findById(userId).lean();
   if (!user) throw unauthorized();
   const [school, partner, cls, children] = await Promise.all([
-    user.schoolId ? School.findById(user.schoolId).select('name code logoUrl partnerId academicYear').lean() : null,
+    user.schoolId ? School.findById(user.schoolId).select('name code logoUrl partnerId academicYear nanobotBuddies').lean() : null,
     user.partnerId ? Partner.findById(user.partnerId).select('name code').lean() : null,
     user.classId ? ClassSection.findById(user.classId).select('name grade section').lean() : null,
     user.childIds?.length
@@ -141,9 +143,23 @@ authRouter.patch('/me', authenticate, async (req, res) => {
       name: z.string().trim().min(1).max(120).optional(),
       phone: z.string().trim().max(30).optional(),
       avatarUrl: z.string().url().max(500).optional().or(z.literal('')),
+      prefs: z
+        .object({
+          language: z.enum(LANG_CODES).optional(),
+          calm: z.boolean().optional(),
+          readAloud: z.boolean().optional(),
+          textSize: z.enum(['normal', 'large', 'xlarge']).optional(),
+          learnWay: z.enum(['mixed', 'reading', 'listening', 'pictures']).optional(),
+          buddy: z.enum(BUDDY_KEYS).optional(),
+        })
+        .optional(),
     }),
   );
-  await User.updateOne({ _id: currentUser(req).id }, data);
+  const { prefs, ...rest } = data;
+  // Preferences are merged one by one so changing one setting keeps the others
+  const set: Record<string, unknown> = { ...rest };
+  for (const [k, v] of Object.entries(prefs ?? {})) if (v !== undefined) set[`prefs.${k}`] = v;
+  await User.updateOne({ _id: currentUser(req).id }, { $set: set });
   res.json(await profile(currentUser(req).id));
 });
 

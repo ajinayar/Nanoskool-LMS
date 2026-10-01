@@ -24,7 +24,7 @@ import { Mascot, SceneArt, StarIcon } from './art';
 import { ICON_ART } from './art-images';
 import { shade, tint, type Look } from './looks';
 import { levelPercent, useLook, useRewards, type Rewards } from './useLook';
-import { MissionCard, NextTurnCard } from './journey';
+import { KnowYourselfCard, MissionCard, NextTurnCard, ThinkingPuzzlesCard } from './journey';
 import { BadgeTile, DailyRewardCard, LevelCard, PointsPill, QuestList, S, StreakPill } from './widgets';
 
 dayjs.extend(relativeTime);
@@ -75,12 +75,7 @@ const unfinished = (d: StudentDash) => d.courses.find((c) => c.unitCount > 0 && 
 function StickerTitle({ lines, colors }: { lines: string[]; colors: string[] }) {
   let n = 0;
   return (
-    <Typography
-      variant="h4"
-      component="h1"
-      data-read
-      sx={{ fontSize: { xs: '2.5rem', sm: '3.2rem', md: '4rem' }, fontWeight: 1000, lineHeight: 0.98, letterSpacing: '-0.01em', mb: 2 }}
-    >
+    <Typography variant="h4" component="h1" data-read sx={{ fontSize: { xs: '2.5rem', sm: '3.2rem', md: '4rem' }, fontWeight: 1000, lineHeight: 0.98, letterSpacing: '-0.01em', mb: 2 }}>
       {lines.map((line, li) => (
         <Box key={li} component="span" sx={{ display: 'block' }}>
           {line.split(' ').map((word, wi) => {
@@ -125,13 +120,7 @@ function LittleHome({ look, d, quizzes, r }: HomeProps) {
   const current = unfinished(d);
   const next = useNext(current);
   const tasks = [...d.assignments.overdue, ...d.assignments.pending];
-  const bubble = !r
-    ? 'Let’s learn something fun today!'
-    : r.daily.canClaim
-      ? 'You did it! Your gift is ready to open.'
-      : r.learnedToday
-        ? 'Great job today! Want to play another lesson?'
-        : 'Finish one lesson to open today’s gift!';
+  const bubble = !r ? 'Let’s learn something fun today!' : r.daily.canClaim ? 'You did it! Your gift is ready to open.' : r.learnedToday ? 'Great job today! Want to play another lesson?' : 'Finish one lesson to open today’s gift!';
   const tiles: { label: string; to: string; img: string; badge?: number; tone: string }[] = [
     { label: look.words.courses, to: `${S}/courses`, img: ICON_ART.lessons, tone: '#FFE4E4' },
     { label: look.words.quizzes, to: `${S}/quizzes`, img: ICON_ART.quiz, badge: quizzes.length, tone: '#FFF1D6' },
@@ -145,7 +134,23 @@ function LittleHome({ look, d, quizzes, r }: HomeProps) {
     <>
       {/* Hero: painted scene, sticker headline, Nano */}
       {/* Full-bleed: the scene runs edge to edge of the window; the words and Nano stay on the page grid */}
-      <Box sx={{ position: 'relative', overflow: 'hidden', mx: 'calc(50% - 50vw)', mt: '-96px', minHeight: { xs: 536, sm: 536, md: 600 }, backgroundImage: `url(${art.hero})`, backgroundSize: 'cover', backgroundPosition: { xs: '70% center', md: 'center' }, boxShadow: '0 16px 40px rgba(60,40,120,0.14)', display: 'flex', alignItems: { xs: 'flex-start', md: 'center' }, pt: { xs: '120px', md: '128px' }, pb: { xs: 12, md: 12 } }}>
+      <Box
+        sx={{
+          position: 'relative',
+          overflow: 'hidden',
+          mx: 'calc(50% - 50vw)',
+          mt: '-96px',
+          minHeight: { xs: 536, sm: 536, md: 600 },
+          backgroundImage: `url(${art.hero})`,
+          backgroundSize: 'cover',
+          backgroundPosition: { xs: '70% center', md: 'center' },
+          boxShadow: '0 16px 40px rgba(60,40,120,0.14)',
+          display: 'flex',
+          alignItems: { xs: 'flex-start', md: 'center' },
+          pt: { xs: '120px', md: '128px' },
+          pb: { xs: 12, md: 12 },
+        }}
+      >
         {art.heroVideo && (
           <Box
             component="video"
@@ -161,39 +166,90 @@ function LittleHome({ look, d, quizzes, r }: HomeProps) {
         )}
         {heroDark && <Box aria-hidden sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, rgba(10,10,40,0.35) 0%, rgba(10,10,40,0.12) 45%, rgba(0,0,0,0) 70%)' }} />}
         <Box sx={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 1180, mx: 'auto', px: { xs: 3, md: 5 } }}>
-        <Box sx={{ maxWidth: 620 }}>
-          <StickerTitle lines={['Let’s learn,', `${first}!`]} colors={['#FFC928', '#FF5C8A', '#3E9BFF', '#2FBF71', '#A56BFF']} />
-          <Stack direction="row" spacing={1} sx={{ display: 'inline-flex', alignItems: 'center', bgcolor: art.ribbon, color: '#fff', borderRadius: 999, px: 2, py: 0.75, mb: 2, boxShadow: `0 4px 0 ${shade(art.ribbon, 0.25)}` }}>
-            <Typography sx={{ fontWeight: 900, fontSize: { xs: 15, md: 18 } }}>{look.tagline}</Typography>
-            <StarIcon size={22} />
-          </Stack>
-          <Box sx={{ display: { xs: 'none', sm: 'block' }, bgcolor: 'rgba(255,255,255,0.95)', color: look.ink, px: 2.25, py: 1.25, borderRadius: '20px 20px 20px 6px', mb: 2.5, maxWidth: 400, boxShadow: '0 6px 16px rgba(0,0,0,0.12)' }}>
-            <Typography data-read sx={{ fontWeight: 800, fontSize: 17 }}>
-              {bubble}
-            </Typography>
+          <Box sx={{ maxWidth: 620 }}>
+            <StickerTitle lines={['Let’s learn,', `${first}!`]} colors={['#FFC928', '#FF5C8A', '#3E9BFF', '#2FBF71', '#A56BFF']} />
+            <Stack direction="row" spacing={1} sx={{ display: 'inline-flex', alignItems: 'center', bgcolor: art.ribbon, color: '#fff', borderRadius: 999, px: 2, py: 0.75, mb: 2, boxShadow: `0 4px 0 ${shade(art.ribbon, 0.25)}` }}>
+              <Typography sx={{ fontWeight: 900, fontSize: { xs: 15, md: 18 } }}>{look.tagline}</Typography>
+              <StarIcon size={22} />
+            </Stack>
+            <Box sx={{ display: { xs: 'none', sm: 'block' }, bgcolor: 'rgba(255,255,255,0.95)', color: look.ink, px: 2.25, py: 1.25, borderRadius: '20px 20px 20px 6px', mb: 2.5, maxWidth: 400, boxShadow: '0 6px 16px rgba(0,0,0,0.12)' }}>
+              <Typography data-read sx={{ fontWeight: 800, fontSize: 17 }}>
+                {bubble}
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<PlayArrow sx={{ fontSize: '32px !important' }} />}
+              component={RouterLink}
+              to={next.to}
+              disabled={!current}
+              sx={{ fontSize: { xs: 18, md: 21 }, py: 1.5, px: { xs: 2.5, md: 3.5 }, whiteSpace: 'nowrap' }}
+            >
+              {current && current.completedUnits ? 'Play next lesson' : 'Start my first lesson'}
+            </Button>
           </Box>
-          <Button variant="contained" size="large" startIcon={<PlayArrow sx={{ fontSize: '32px !important' }} />} component={RouterLink} to={next.to} disabled={!current} sx={{ fontSize: { xs: 18, md: 21 }, py: 1.5, px: { xs: 2.5, md: 3.5 }, whiteSpace: 'nowrap' }}>
-            {current && current.completedUnits ? 'Play next lesson' : 'Start my first lesson'}
-          </Button>
-        </Box>
         </Box>
         <Box aria-hidden sx={{ position: 'absolute', inset: 0, zIndex: 1, width: '100%', maxWidth: 1180, mx: 'auto', pointerEvents: 'none' }}>
-        <Box sx={{ position: 'absolute', right: { xs: -6, sm: '6%', md: '34%' }, bottom: { xs: 70, md: 60 }, width: { xs: 130, sm: 190, md: 250 } }}>
-          <Box className="float" sx={{ animation: 'nsFloat 4s ease-in-out infinite', '@keyframes nsFloat': { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-10px)' } }, '@media (prefers-reduced-motion: reduce)': { animation: 'none' } }}>
-            <Box component="img" src={art.nano} alt="Nano the robot" sx={{ width: '100%', display: 'block', filter: 'drop-shadow(0 14px 18px rgba(20,20,60,0.28))' }} />
+          <Box sx={{ position: 'absolute', right: { xs: -6, sm: '6%', md: '34%' }, bottom: { xs: 70, md: 60 }, width: { xs: 130, sm: 190, md: 250 } }}>
+            <Box
+              className="float"
+              sx={{ animation: 'nsFloat 4s ease-in-out infinite', '@keyframes nsFloat': { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-10px)' } }, '@media (prefers-reduced-motion: reduce)': { animation: 'none' } }}
+            >
+              <Box component="img" src={art.nano} alt="Nano the robot" sx={{ width: '100%', display: 'block', filter: 'drop-shadow(0 14px 18px rgba(20,20,60,0.28))' }} />
+            </Box>
           </Box>
-        </Box>
         </Box>
       </Box>
 
       {/* Picture tiles */}
-      <Box sx={{ mt: -9, mx: { xs: 1, md: 4 }, position: 'relative', zIndex: 2, mb: 4, bgcolor: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(8px)', borderRadius: '32px', border: '3px solid #fff', boxShadow: '0 12px 30px rgba(60,40,120,0.14)', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', p: { xs: 1, md: 1.5 } }}>
+      <Box
+        sx={{
+          mt: -9,
+          mx: { xs: 1, md: 4 },
+          position: 'relative',
+          zIndex: 2,
+          mb: 4,
+          bgcolor: 'rgba(255,255,255,0.94)',
+          backdropFilter: 'blur(8px)',
+          borderRadius: '32px',
+          border: '3px solid #fff',
+          boxShadow: '0 12px 30px rgba(60,40,120,0.14)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(5, 1fr)',
+          p: { xs: 1, md: 1.5 },
+        }}
+      >
         {tiles.map((t, i) => (
-          <ButtonBase key={t.label} component={RouterLink} to={t.to} sx={{ flexDirection: 'column', gap: 0.75, py: { xs: 1, md: 1.5 }, borderRadius: '24px', borderLeft: i ? { md: '2px dashed #EFEAF7' } : 'none', '&:hover .tile': { transform: 'translateY(-4px) scale(1.04)' } }}>
+          <ButtonBase
+            key={t.label}
+            component={RouterLink}
+            to={t.to}
+            sx={{ flexDirection: 'column', gap: 0.75, py: { xs: 1, md: 1.5 }, borderRadius: '24px', borderLeft: i ? { md: '2px dashed #EFEAF7' } : 'none', '&:hover .tile': { transform: 'translateY(-4px) scale(1.04)' } }}
+          >
             <Box className="tile" sx={{ position: 'relative', width: { xs: 56, md: 96 }, height: { xs: 56, md: 96 }, borderRadius: '50%', bgcolor: t.tone, display: 'grid', placeItems: 'center', transition: 'transform .18s' }}>
               <Box component="img" src={t.img} alt="" sx={{ width: '92%', height: '92%', objectFit: 'contain' }} />
               {!!t.badge && (
-                <Box sx={{ position: 'absolute', top: -2, right: -2, minWidth: 28, height: 28, px: 0.5, borderRadius: 999, bgcolor: '#FF3B5C', color: '#fff', border: '3px solid #fff', fontSize: 13, fontWeight: 900, display: 'grid', placeItems: 'center' }}>{t.badge}</Box>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    minWidth: 28,
+                    height: 28,
+                    px: 0.5,
+                    borderRadius: 999,
+                    bgcolor: '#FF3B5C',
+                    color: '#fff',
+                    border: '3px solid #fff',
+                    fontSize: 13,
+                    fontWeight: 900,
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  {t.badge}
+                </Box>
               )}
             </Box>
             <Typography sx={{ fontWeight: 900, fontSize: { xs: 12, md: 17 }, textAlign: 'center', lineHeight: 1.15, color: look.ink }}>{t.label}</Typography>
@@ -201,8 +257,10 @@ function LittleHome({ look, d, quizzes, r }: HomeProps) {
         ))}
       </Box>
       <Box sx={{ mx: { xs: 1, md: 4 } }}>
-      <MissionCard look={look} />
-      <NextTurnCard look={look} />
+        <MissionCard look={look} />
+        <KnowYourselfCard look={look} />
+        <ThinkingPuzzlesCard look={look} />
+        <NextTurnCard look={look} />
       </Box>
 
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1.65fr 1fr' }, alignItems: 'start' }}>
@@ -226,9 +284,7 @@ function LittleHome({ look, d, quizzes, r }: HomeProps) {
                     <Box component="img" src={ICON_ART.tasks} alt="" sx={{ width: 56, height: 56, flexShrink: 0 }} />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography sx={{ fontWeight: 900, fontSize: 17 }}>{a.title}</Typography>
-                      <Typography sx={{ color: d.assignments.overdue.includes(a) ? 'error.main' : 'text.secondary', fontWeight: 700 }}>
-                        {a.dueDate ? `Finish by ${dayjs(a.dueDate).format('dddd')}` : 'Any time'}
-                      </Typography>
+                      <Typography sx={{ color: d.assignments.overdue.includes(a) ? 'error.main' : 'text.secondary', fontWeight: 700 }}>{a.dueDate ? `Finish by ${dayjs(a.dueDate).format('dddd')}` : 'Any time'}</Typography>
                     </Box>
                     <ArrowForward sx={{ color: look.ink2 }} />
                   </Card>
@@ -248,7 +304,19 @@ function LittleHome({ look, d, quizzes, r }: HomeProps) {
             <Skeleton variant="rounded" height={240} />
           )}
           {look.grade <= 2 && (
-            <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '28px', background: 'linear-gradient(135deg, #FFE3EC 0%, #FFD1E0 100%)', border: '3px solid #fff', p: 2.5, pr: { xs: 14, md: 16 }, minHeight: 150, boxShadow: '0 10px 24px rgba(200,60,110,0.12)' }}>
+            <Box
+              sx={{
+                position: 'relative',
+                overflow: 'hidden',
+                borderRadius: '28px',
+                background: 'linear-gradient(135deg, #FFE3EC 0%, #FFD1E0 100%)',
+                border: '3px solid #fff',
+                p: 2.5,
+                pr: { xs: 14, md: 16 },
+                minHeight: 150,
+                boxShadow: '0 10px 24px rgba(200,60,110,0.12)',
+              }}
+            >
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
                 <Favorite sx={{ color: '#FF4D7A' }} />
                 <Typography component="h2" sx={{ fontWeight: 1000, fontSize: 18, color: '#C2185B', textTransform: 'uppercase' }}>
@@ -333,42 +401,46 @@ function JuniorHome({ look, d, quizzes, r }: HomeProps) {
   const upcoming = r?.badges.filter((b) => !b.earned).slice(0, Math.max(0, 5 - Math.min(earned.length, 3))) ?? [];
   return (
     <>
-      <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: `${look.radius}px`, background: look.hero, color: look.heroInk, p: { xs: 2.5, md: 4 }, mb: 3, display: 'flex', gap: 3, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' } }}>
+      <Box sx={{ position: 'relative', overflow: 'hidden', mx: 'calc(50% - 50vw)', mt: -3, background: look.hero, color: look.heroInk, mb: 3, boxShadow: `0 6px 0 ${tint(look.primary, 0.15)}` }}>
         {look.scene && <SceneArt scene={look.scene} />}
-        <Box sx={{ position: 'relative', flex: 1, minWidth: 0 }}>
-          <Typography sx={{ opacity: 0.85, fontWeight: 600 }}>
-            {greeting()} · {look.name}
-          </Typography>
-          <Typography variant="h4" component="h1" sx={{ color: 'inherit', mb: 1 }}>
-            Hi {firstName(me.name)}, ready for today’s quest?
-          </Typography>
-          <Typography sx={{ opacity: 0.9, mb: 2.5, maxWidth: 560 }}>
-            {next.next ? `Up next in ${current?.course.title}: ${next.next.title}.` : look.tagline}
-          </Typography>
-          <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-            <Button variant="contained" component={RouterLink} to={next.to} startIcon={<PlayArrow />} sx={{ bgcolor: '#FFFFFF', color: look.primary, '&:hover': { bgcolor: '#F4F4F8' } }} disabled={!current}>
-              {current?.completedUnits ? 'Continue' : 'Start learning'}
-            </Button>
-            {r && <StreakPill look={look} streak={r.streak} onDark />}
-            {r && <PointsPill look={look} xp={r.xp} onDark />}
-          </Stack>
-        </Box>
-        {look.mascot && look.grade <= 6 ? (
-          <Box sx={{ position: 'relative', display: { xs: 'none', sm: 'block' }, flexShrink: 0 }}>
-            <Mascot {...look.mascot} size={look.grade <= 5 ? 150 : 120} />
+        <Box sx={{ position: 'relative', maxWidth: 1280, mx: 'auto', px: { xs: 2.5, md: 5 }, py: { xs: 3.5, md: 5 }, display: 'flex', gap: 3, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' } }}>
+          <Box sx={{ position: 'relative', flex: 1, minWidth: 0 }}>
+            <Typography sx={{ opacity: 0.85, fontWeight: 600 }}>
+              {greeting()} · {look.name}
+            </Typography>
+            <Typography variant="h4" component="h1" sx={{ color: 'inherit', mb: 1 }}>
+              Hi {firstName(me.name)}, ready for today’s quest?
+            </Typography>
+            <Typography sx={{ opacity: 0.9, mb: 2.5, maxWidth: 560 }}>{next.next ? `Up next in ${current?.course.title}: ${next.next.title}.` : look.tagline}</Typography>
+            <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
+              <Button variant="contained" component={RouterLink} to={next.to} startIcon={<PlayArrow />} sx={{ bgcolor: '#FFFFFF', color: look.primary, '&:hover': { bgcolor: '#F4F4F8' } }} disabled={!current}>
+                {current?.completedUnits ? 'Continue' : 'Start learning'}
+              </Button>
+              {r && <StreakPill look={look} streak={r.streak} onDark />}
+              {r && <PointsPill look={look} xp={r.xp} onDark />}
+            </Stack>
           </Box>
-        ) : (
-          r && (
-            <Box sx={{ position: 'relative', textAlign: 'center', flexShrink: 0, minWidth: 150 }}>
-              <Typography sx={{ fontSize: 13, opacity: 0.8 }}>Level</Typography>
-              <Typography sx={{ fontSize: 56, fontWeight: 800, lineHeight: 1 }}>{r.level}</Typography>
-              <LinearProgress variant="determinate" value={levelPercent(r)} sx={{ mt: 1.5, bgcolor: 'rgba(255,255,255,0.25)', '& .MuiLinearProgress-bar': { bgcolor: '#FFFFFF' } }} />
-              <Typography sx={{ fontSize: 12.5, opacity: 0.8, mt: 0.75 }}>{r.nextLevelAt - r.xp} XP to level {r.level + 1}</Typography>
+          {look.mascot ? (
+            <Box sx={{ position: 'relative', display: { xs: 'none', sm: 'block' }, flexShrink: 0 }}>
+              <Mascot {...look.mascot} size={look.grade <= 5 ? 150 : 130} />
             </Box>
-          )
-        )}
+          ) : (
+            r && (
+              <Box sx={{ position: 'relative', textAlign: 'center', flexShrink: 0, minWidth: 150 }}>
+                <Typography sx={{ fontSize: 13, opacity: 0.8 }}>Level</Typography>
+                <Typography sx={{ fontSize: 56, fontWeight: 800, lineHeight: 1 }}>{r.level}</Typography>
+                <LinearProgress variant="determinate" value={levelPercent(r)} sx={{ mt: 1.5, bgcolor: 'rgba(255,255,255,0.25)', '& .MuiLinearProgress-bar': { bgcolor: '#FFFFFF' } }} />
+                <Typography sx={{ fontSize: 12.5, opacity: 0.8, mt: 0.75 }}>
+                  {r.nextLevelAt - r.xp} XP to level {r.level + 1}
+                </Typography>
+              </Box>
+            )
+          )}
+        </Box>
       </Box>
       <MissionCard look={look} />
+      <KnowYourselfCard look={look} />
+      <ThinkingPuzzlesCard look={look} />
       <NextTurnCard look={look} />
 
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, mb: 3 }}>
@@ -389,7 +461,13 @@ function JuniorHome({ look, d, quizzes, r }: HomeProps) {
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
             <ListCard look={look} title={look.words.assignments} to={`${S}/assignments`} empty="All caught up!">
               {tasks.slice(0, 4).map((a) => (
-                <Row key={a._id} to={`${S}/assignments/${a._id}`} title={a.title} sub={a.late ? `Overdue since ${fmtDate(a.dueDate, 'D MMM')}` : a.dueDate ? `Due ${dayjs(a.dueDate).fromNow()}` : 'No due date'} tone={a.late ? '#DC2626' : look.primary} />
+                <Row
+                  key={a._id}
+                  to={`${S}/assignments/${a._id}`}
+                  title={a.title}
+                  sub={a.late ? `Overdue since ${fmtDate(a.dueDate, 'D MMM')}` : a.dueDate ? `Due ${dayjs(a.dueDate).fromNow()}` : 'No due date'}
+                  tone={a.late ? '#DC2626' : look.primary}
+                />
               ))}
             </ListCard>
             <ListCard look={look} title={look.words.quizzes} to={`${S}/quizzes`} empty="No open quizzes">
@@ -539,21 +617,76 @@ function SeniorHome({ look, d, quizzes, r }: HomeProps) {
   const readiness = Math.round(((d.overallProgress ?? 0) + (d.quizzes.averagePercent ?? 0)) / (d.quizzes.averagePercent == null ? 1 : 2));
   return (
     <>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          {greeting()}, {firstName(me.name)}
-        </Typography>
-        <Typography sx={{ color: 'text.secondary', mt: 0.5 }}>
-          {thisWeek ? `${thisWeek} item${thisWeek === 1 ? '' : 's'} due in the next 7 days` : 'Nothing due in the next 7 days'} · {d.student.class?.name ?? `Grade ${look.grade}`}
-        </Typography>
+      <Box
+        sx={{
+          position: 'relative',
+          overflow: 'hidden',
+          mx: { xs: -2, md: -4 },
+          mt: -3,
+          background: look.hero,
+          color: look.heroInk,
+          px: { xs: 2.5, md: 5 },
+          py: { xs: 3, md: 4.5 },
+          mb: 3,
+          display: 'flex',
+          gap: 3,
+          alignItems: 'center',
+          boxShadow: `0 6px 0 ${tint(look.primary, 0.15)}`,
+        }}
+      >
+        {look.scene && (
+          <Box sx={{ position: 'absolute', inset: 0, opacity: 0.55 }}>
+            <SceneArt scene={look.scene} />
+          </Box>
+        )}
+        <Box sx={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <Typography sx={{ opacity: 0.9, fontWeight: 700 }}>
+            {greeting()} · {look.name}
+          </Typography>
+          <Typography variant="h4" component="h1" sx={{ color: 'inherit', mb: 0.75 }}>
+            Hey {firstName(me.name)}! 👋
+          </Typography>
+          <Typography sx={{ opacity: 0.92, mb: 2, maxWidth: 560 }}>
+            {thisWeek ? `You have ${thisWeek} thing${thisWeek === 1 ? '' : 's'} due in the next 7 days — let’s knock ${thisWeek === 1 ? 'it' : 'them'} out!` : `Nothing due this week. ${look.tagline}`}
+          </Typography>
+          <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap', gap: 1.25, alignItems: 'center' }}>
+            {dues[0] && (
+              <Button
+                variant="contained"
+                component={RouterLink}
+                to={dues[0].to}
+                startIcon={<PlayArrow />}
+                sx={{ bgcolor: '#FFFFFF', color: look.primary, boxShadow: '0 3px 0 rgba(0,0,0,0.15)', '&:hover': { bgcolor: '#F4F4F8', boxShadow: '0 3px 0 rgba(0,0,0,0.15)' } }}
+              >
+                Start: {dues[0].title.length > 28 ? `${dues[0].title.slice(0, 28)}…` : dues[0].title}
+              </Button>
+            )}
+            {r && <StreakPill look={look} streak={r.streak} onDark />}
+            {r && <PointsPill look={look} xp={r.xp} onDark />}
+          </Stack>
+        </Box>
+        {look.mascot && (
+          <Box sx={{ position: 'relative', display: { xs: 'none', sm: 'block' }, flexShrink: 0 }}>
+            <Mascot {...look.mascot} size={110} />
+          </Box>
+        )}
       </Box>
 
       <MissionCard look={look} />
+      <KnowYourselfCard look={look} />
+      <ThinkingPuzzlesCard look={look} />
       <NextTurnCard look={look} />
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, mb: 3 }}>
         <Stat look={look} i={0} icon={<AutoStories />} label="Course completion" value={`${d.overallProgress ?? 0}%`} hint={`${d.courses.length} courses`} />
         <Stat look={look} i={1} icon={<Quiz />} label="Quiz average" value={d.quizzes.averagePercent == null ? '—' : `${d.quizzes.averagePercent}%`} hint={`${d.quizzes.count} attempts`} />
-        <Stat look={look} i={2} icon={<Assignment />} label="Assignment grades" value={d.assignments.averagePercent == null ? '—' : `${d.assignments.averagePercent}%`} hint={`${d.assignments.graded} graded · ${d.assignments.overdue.length} overdue`} />
+        <Stat
+          look={look}
+          i={2}
+          icon={<Assignment />}
+          label="Assignment grades"
+          value={d.assignments.averagePercent == null ? '—' : `${d.assignments.averagePercent}%`}
+          hint={`${d.assignments.graded} graded · ${d.assignments.overdue.length} overdue`}
+        />
         <Stat look={look} i={3} icon={<TaskAlt />} label="Attendance" value={d.attendance.percent == null ? '—' : `${d.attendance.percent}%`} hint={`${d.attendance.present} of ${d.attendance.days} days`} />
       </Box>
 
@@ -567,7 +700,22 @@ function SeniorHome({ look, d, quizzes, r }: HomeProps) {
               ) : (
                 <Box>
                   {dues.slice(0, 6).map((x, i) => (
-                    <Box key={`${x.kind}${x.id}`} component={RouterLink} to={x.to} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', sm: '96px 1fr 150px' }, gap: 2, alignItems: 'center', py: 1.25, borderTop: i ? `1px solid ${look.line}` : 'none', color: 'inherit', textDecoration: 'none', '&:hover .t': { color: look.primary === '#18181B' ? look.accent : look.primary } }}>
+                    <Box
+                      key={`${x.kind}${x.id}`}
+                      component={RouterLink}
+                      to={x.to}
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr auto', sm: '96px 1fr 150px' },
+                        gap: 2,
+                        alignItems: 'center',
+                        py: 1.25,
+                        borderTop: i ? `1px solid ${look.line}` : 'none',
+                        color: 'inherit',
+                        textDecoration: 'none',
+                        '&:hover .t': { color: look.primary === '#18181B' ? look.accent : look.primary },
+                      }}
+                    >
                       <Chip size="small" label={x.kind} sx={{ display: { xs: 'none', sm: 'inline-flex' }, justifySelf: 'start', bgcolor: x.kind === 'Quiz' ? tint(look.accent, 0.14) : look.soft, color: look.ink }} />
                       <Typography className="t" noWrap sx={{ fontWeight: 500 }}>
                         {x.title}
@@ -601,7 +749,10 @@ function SeniorHome({ look, d, quizzes, r }: HomeProps) {
                   {recent.map((a) => (
                     <Box key={a._id} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 48px', sm: '1fr 200px 48px' }, gap: 2, alignItems: 'center' }}>
                       <Typography noWrap variant="body2">
-                        {refName(a.quizId)} <Box component="span" sx={{ color: 'text.secondary' }}>· {fmtDate(a.submittedAt, 'D MMM')}</Box>
+                        {refName(a.quizId)}{' '}
+                        <Box component="span" sx={{ color: 'text.secondary' }}>
+                          · {fmtDate(a.submittedAt, 'D MMM')}
+                        </Box>
                       </Typography>
                       <LinearProgress variant="determinate" value={a.percent} color={a.percent >= 75 ? 'success' : a.percent >= 50 ? 'primary' : 'warning'} sx={{ display: { xs: 'none', sm: 'block' } }} />
                       <Typography variant="body2" sx={{ textAlign: 'right', fontWeight: 600 }}>

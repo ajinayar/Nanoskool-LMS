@@ -7,6 +7,7 @@ import { audit } from '../../lib/audit.js';
 import { badRequest, forbidden, notFound } from '../../lib/errors.js';
 import { body, escapeRegex, idParam, objectId, pageQuery, query } from '../../lib/validate.js';
 import { authenticate, currentUser, requireRole, type AuthUser } from '../../middleware/auth.js';
+import { BUDDY_KEYS } from '../../lib/buddies.js';
 import { ClassCourse, ClassSection, Partner, School, User } from '../../models/index.js';
 
 export const orgRouter = Router();
@@ -97,6 +98,7 @@ const schoolBody = z.object({
   academicYear: z.string().trim().max(20).optional(),
   plan: z.enum(['basic', 'standard', 'premium']).optional(),
   aiMonthlyTokens: z.number().int().min(0).max(100_000_000).optional(),
+  nanobotBuddies: z.array(z.enum(BUDDY_KEYS)).max(20).optional(),
   status: z.enum(['active', 'inactive']).optional(),
 });
 
@@ -516,7 +518,10 @@ orgRouter.post('/users/:id/status', requireRole('super_admin', 'partner', 'schoo
   res.json({ ok: true, status });
 });
 
-/** Admin-triggered password reset: emails a link, or returns a one-time password for accounts without email. */
+/**
+ * Admin-triggered password reset: emails a link, or returns a one-time password (accounts without email,
+ * or when the admin asks for one, e.g. while email is not set up). The user must choose a new password at first sign-in.
+ */
 orgRouter.post('/users/:id/reset-password', requireRole('super_admin', 'partner', 'school_admin'), async (req, res) => {
   const me = currentUser(req);
   const target = await User.findById(idParam(req));
@@ -525,8 +530,9 @@ orgRouter.post('/users/:id/reset-password', requireRole('super_admin', 'partner'
   const { issueResetLink, hashPassword } = await import('../../lib/accounts.js');
   const { tempPassword } = await import('../../lib/tokens.js');
   const { sendMail } = await import('../../lib/mailer.js');
-  audit(req, 'user.reset_password', 'User', target._id);
-  if (target.email) {
+  const { temporary } = body(req, z.object({ temporary: z.boolean().optional() }).default({}));
+  audit(req, temporary ? 'user.temp_password' : 'user.reset_password', 'User', target._id);
+  if (target.email && !temporary) {
     const link = await issueResetLink(target._id, 'reset');
     await sendMail(target.email, 'Reset your Nanoskool password', `Hello ${target.name},\n\nYour school has reset your password. Set a new one here (valid for 1 hour):\n${link}`);
     return res.json({ ok: true, emailed: true });

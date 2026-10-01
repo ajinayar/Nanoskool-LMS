@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { sharedContext } from '@/lib/sharedContext';
+import { useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, refreshAccessToken, setAccessToken, setSessionExpiredHandler } from '@/api/client';
 import type { Profile } from '@/api/types';
@@ -11,7 +12,7 @@ interface AuthState {
   reload: () => Promise<void>;
 }
 
-const Ctx = createContext<AuthState | null>(null);
+const Ctx = sharedContext<AuthState | null>('auth', null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);

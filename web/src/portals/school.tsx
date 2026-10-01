@@ -1,4 +1,6 @@
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
+import DoorFrontOutlined from '@mui/icons-material/DoorFrontOutlined';
+import { SchoolDoorsPage } from '@/pages/shared/DoorPages';
 import ClassOutlined from '@mui/icons-material/ClassOutlined';
 import CoPresentOutlined from '@mui/icons-material/CoPresentOutlined';
 import SchoolOutlined from '@mui/icons-material/SchoolOutlined';
@@ -17,6 +19,8 @@ import { QuizDetailPage } from '@/components/AdminQuiz';
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined';
 import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
 import { ClassOutcomesPage, ReviewPage } from '@/pages/shared/ReviewPages';
+import { SchoolWellbeingPage, TeacherObservationsPage } from '@/pages/teacher/ObservationPages';
+import ForumOutlined from '@mui/icons-material/ForumOutlined';
 import { sharedRoutes } from './shared';
 import type { Portal } from './types';
 
@@ -33,9 +37,11 @@ export const portal: Portal = {
     { label: 'Students', path: 'students', icon: <SchoolOutlined />, group: 'People' },
     { label: 'Parents', path: 'parents', icon: <FamilyRestroomOutlined />, group: 'People' },
     { label: 'Courses', path: 'courses', icon: <MenuBookOutlined />, group: 'Learning' },
+    { label: 'Genius Doors', path: 'doors', icon: <DoorFrontOutlined />, group: 'Learning' },
     { label: 'Assignments', path: 'assignments', icon: <AssignmentOutlined />, group: 'Learning' },
     { label: 'Learning outcomes', path: 'outcomes', icon: <InsightsOutlined />, group: 'Learning' },
     { label: 'Evidence', path: 'evidence', icon: <FactCheckOutlined />, group: 'Learning' },
+    { label: 'Wellbeing', path: 'wellbeing', icon: <ForumOutlined />, group: 'Learning' },
     { label: 'Reports', path: 'reports', icon: <BarChartOutlined />, group: 'Learning' },
     { label: 'Announcements', path: 'announcements', icon: <CampaignOutlined />, group: 'Communication' },
     { label: 'Events', path: 'events', icon: <EventOutlined />, group: 'Communication' },
@@ -52,9 +58,12 @@ export const portal: Portal = {
     { path: 'students/:id', element: <StudentDetailPage /> },
     { path: 'parents', element: <ParentsPage /> },
     { path: 'courses', element: <SchoolCoursesPage /> },
+    { path: 'doors', element: <SchoolDoorsPage /> },
     { path: 'assignments', element: <SchoolAssignmentsPage /> },
     { path: 'reports', element: <SchoolReportsPage /> },
     { path: 'outcomes', element: <ClassOutcomesPage studentBase="/school/students/" /> },
+    { path: 'wellbeing', element: <SchoolWellbeingPage /> },
+    { path: 'observations', element: <TeacherObservationsPage /> },
     { path: 'evidence', element: <ReviewPage /> },
     { path: 'settings', element: <SchoolSettingsPage /> },
     { path: 'quizzes/:id', element: <QuizDetailPage /> },

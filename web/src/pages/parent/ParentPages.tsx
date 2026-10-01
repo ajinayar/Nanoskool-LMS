@@ -18,6 +18,8 @@ import { BackButton, KIND_LABEL, UrlTabs, WideTable, useTab } from '@/pages/teac
 import { isLate } from '@/pages/teacher/AssignmentPages';
 import { AttendanceHistoryView, type AttendanceHistory } from '@/pages/student/StudentProgress';
 import { ParentJourneyTab, PortfolioSection } from '@/pages/shared/JourneyPages';
+import { ParentKnowYourself } from '@/components/PsychometricViews';
+import { ParentThinking } from '@/components/CognitiveViews';
 import { assignmentState } from '@/pages/student/common';
 
 const P = '/parent';
@@ -155,7 +157,7 @@ export function ParentChildrenPage() {
   );
 }
 
-const TABS = ['overview', 'journey', 'portfolio', 'assignments', 'attendance', 'remarks'] as const;
+const TABS = ['overview', 'journey', 'portfolio', 'profile', 'thinking', 'assignments', 'attendance', 'remarks'] as const;
 
 export function ParentChildPage() {
   const { id } = useParams();
@@ -175,13 +177,7 @@ export function ParentChildPage() {
         subtitle={[child.classId && typeof child.classId === 'object' ? child.classId.name : '', child.rollNo ? `Roll no. ${child.rollNo}` : ''].filter(Boolean).join(' · ')}
         actions={
           me.children.length > 1 ? (
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={id}
-              onChange={(_, v) => v && navigate(`${P}/children/${v}?${params.toString()}`)}
-              aria-label="Switch child"
-            >
+            <ToggleButtonGroup size="small" exclusive value={id} onChange={(_, v) => v && navigate(`${P}/children/${v}?${params.toString()}`)} aria-label="Switch child">
               {me.children.map((c) => (
                 <ToggleButton key={c._id} value={c._id} sx={{ px: 2 }}>
                   <Avatar src={c.avatarUrl} sx={{ width: 22, height: 22, fontSize: 12, mr: 1, bgcolor: 'primary.light' }}>
@@ -201,18 +197,21 @@ export function ParentChildPage() {
           { value: 'overview', label: 'Overview' },
           { value: 'journey', label: 'Guidance' },
           { value: 'portfolio', label: 'Portfolio' },
+          { value: 'profile', label: 'Know Yourself' },
+          { value: 'thinking', label: 'Thinking Puzzles' },
           { value: 'assignments', label: 'Assignments' },
           { value: 'attendance', label: 'Attendance' },
           { value: 'remarks', label: 'Remarks' },
         ]}
       />
-      {tab === 'overview' &&
-        (report.isLoading ? <Loading /> : report.error ? <ErrorState error={report.error} /> : report.data ? <ReportCardView report={report.data} compact courseLink={(cid) => `${P}/courses/${cid}?studentId=${id}`} /> : null)}
+      {tab === 'overview' && (report.isLoading ? <Loading /> : report.error ? <ErrorState error={report.error} /> : report.data ? <ReportCardView report={report.data} compact courseLink={(cid) => `${P}/courses/${cid}?studentId=${id}`} /> : null)}
       {tab === 'assignments' && <ChildAssignments studentId={id!} classId={classId} />}
       {tab === 'attendance' && <ChildAttendance studentId={id!} />}
       {tab === 'remarks' && <ChildRemarks studentId={id!} />}
       {tab === 'journey' && <ParentJourneyTab studentId={id!} />}
       {tab === 'portfolio' && <PortfolioSection studentId={id!} />}
+      {tab === 'profile' && <ParentKnowYourself studentId={id!} />}
+      {tab === 'thinking' && <ParentThinking studentId={id!} childName={child.name} />}
     </>
   );
 }
@@ -227,61 +226,72 @@ function ChildAssignments({ studentId, classId }: { studentId: string; classId: 
           const rows = items.filter((a) => refId(a.classId) === classId);
           return (
             <WideTable min={820}>
-            <DataTable
-              rows={rows}
-              empty={<Empty title="No assignments yet" />}
-              columns={[
-                {
-                  key: 'title',
-                  label: 'Assignment',
-                  render: (a) => (
-                    <Box>
-                      <Typography sx={{ fontWeight: 600 }}>{a.title}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {KIND_LABEL[a.kind]}
-                        {refName(a.courseId) ? ` · ${refName(a.courseId)}` : ''}
-                        {refName(a.createdBy) ? ` · ${refName(a.createdBy)}` : ''}
-                      </Typography>
-                    </Box>
-                  ),
-                },
-                { key: 'class', label: 'Class', render: (a) => refName(a.classId) },
-                { key: 'due', label: 'Due', render: (a) => <DueDate date={a.dueDate} /> },
-                {
-                  key: 'status',
-                  label: 'Status',
-                  render: (a) => {
-                    const st = assignmentState(a);
-                    const label = { todo: 'Not submitted', overdue: 'Overdue', closed: 'Closed', submitted: 'Submitted', returned: 'Returned for changes', graded: 'Graded' }[st];
-                    const chip = { todo: 'pending', overdue: 'overdue', closed: 'closed', submitted: 'submitted', returned: 'returned', graded: 'graded' }[st];
-                    return (
-                      <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
-                        <StatusChip status={chip} label={label} />
-                        {a.submission && (
-                          <Typography variant="caption" color="text.secondary">
-                            {fmtDateTime(a.submission.submittedAt)}
-                            {isLate(a.submission, a.dueDate) ? ' · late' : ''}
-                          </Typography>
-                        )}
-                      </Stack>
-                    );
-                  },
-                },
-                { key: 'grade', label: 'Grade', render: (a) => (a.submission?.status === 'graded' ? <Typography sx={{ fontWeight: 700 }}>{a.submission.points}/{a.maxPoints}</Typography> : '—') },
-                {
-                  key: 'fb',
-                  label: 'Teacher feedback',
-                  render: (a) =>
-                    a.submission?.feedback ? (
-                      <Typography variant="body2" sx={{ maxWidth: 320, whiteSpace: 'pre-wrap' }}>
-                        {a.submission.feedback}
-                      </Typography>
-                    ) : (
-                      '—'
+              <DataTable
+                rows={rows}
+                empty={<Empty title="No assignments yet" />}
+                columns={[
+                  {
+                    key: 'title',
+                    label: 'Assignment',
+                    render: (a) => (
+                      <Box>
+                        <Typography sx={{ fontWeight: 600 }}>{a.title}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {KIND_LABEL[a.kind]}
+                          {refName(a.courseId) ? ` · ${refName(a.courseId)}` : ''}
+                          {refName(a.createdBy) ? ` · ${refName(a.createdBy)}` : ''}
+                        </Typography>
+                      </Box>
                     ),
-                },
-              ]}
-            />
+                  },
+                  { key: 'class', label: 'Class', render: (a) => refName(a.classId) },
+                  { key: 'due', label: 'Due', render: (a) => <DueDate date={a.dueDate} /> },
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    render: (a) => {
+                      const st = assignmentState(a);
+                      const label = { todo: 'Not submitted', overdue: 'Overdue', closed: 'Closed', submitted: 'Submitted', returned: 'Returned for changes', graded: 'Graded' }[st];
+                      const chip = { todo: 'pending', overdue: 'overdue', closed: 'closed', submitted: 'submitted', returned: 'returned', graded: 'graded' }[st];
+                      return (
+                        <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+                          <StatusChip status={chip} label={label} />
+                          {a.submission && (
+                            <Typography variant="caption" color="text.secondary">
+                              {fmtDateTime(a.submission.submittedAt)}
+                              {isLate(a.submission, a.dueDate) ? ' · late' : ''}
+                            </Typography>
+                          )}
+                        </Stack>
+                      );
+                    },
+                  },
+                  {
+                    key: 'grade',
+                    label: 'Grade',
+                    render: (a) =>
+                      a.submission?.status === 'graded' ? (
+                        <Typography sx={{ fontWeight: 700 }}>
+                          {a.submission.points}/{a.maxPoints}
+                        </Typography>
+                      ) : (
+                        '—'
+                      ),
+                  },
+                  {
+                    key: 'fb',
+                    label: 'Teacher feedback',
+                    render: (a) =>
+                      a.submission?.feedback ? (
+                        <Typography variant="body2" sx={{ maxWidth: 320, whiteSpace: 'pre-wrap' }}>
+                          {a.submission.feedback}
+                        </Typography>
+                      ) : (
+                        '—'
+                      ),
+                  },
+                ]}
+              />
             </WideTable>
           );
         }}
@@ -348,7 +358,13 @@ export function ParentQuizPage() {
           </Button>
           <PageHeader
             title={qz.title}
-            subtitle={[refName(qz.courseId) || refName(qz.classId), `${qz.questions.length} questions`, qz.timeLimitMin ? `${qz.timeLimitMin} min` : 'No time limit', `${qz.maxAttempts ?? 1} attempt${(qz.maxAttempts ?? 1) > 1 ? 's' : ''} allowed`, qz.dueDate ? `closes ${fmtDate(qz.dueDate, 'D MMM, h:mm A')}` : '']
+            subtitle={[
+              refName(qz.courseId) || refName(qz.classId),
+              `${qz.questions.length} questions`,
+              qz.timeLimitMin ? `${qz.timeLimitMin} min` : 'No time limit',
+              `${qz.maxAttempts ?? 1} attempt${(qz.maxAttempts ?? 1) > 1 ? 's' : ''} allowed`,
+              qz.dueDate ? `closes ${fmtDate(qz.dueDate, 'D MMM, h:mm A')}` : '',
+            ]
               .filter(Boolean)
               .join(' · ')}
           />
@@ -357,19 +373,14 @@ export function ParentQuizPage() {
             <Loading />
           ) : attempts.error ? (
             <ErrorState error={attempts.error} />
+          ) : kids.length === 0 ? (
+            <Empty title="This quiz is not for your children's classes" />
           ) : (
-            kids.length === 0 ? (
-              <Empty title="This quiz is not for your children's classes" />
-            ) : (
             kids.map((c) => {
               const mine = (attempts.data ?? []).filter((a) => refId(a.studentId) === c._id);
               const best = mine.length ? Math.max(...mine.map((a) => a.percent)) : null;
               return (
-                <Section
-                  key={c._id}
-                  title={c.name}
-                  action={best != null ? <Chip color={best >= 75 ? 'success' : 'default'} label={`Best ${best}%`} /> : <Chip variant="outlined" label="Not attempted" />}
-                >
+                <Section key={c._id} title={c.name} action={best != null ? <Chip color={best >= 75 ? 'success' : 'default'} label={`Best ${best}%`} /> : <Chip variant="outlined" label="Not attempted" />}>
                   <DataTable
                     rows={mine}
                     empty={<Empty title="No attempts yet" hint={qz.dueDate && dayjs(qz.dueDate).isBefore(dayjs()) ? 'This quiz is closed.' : `${c.name.split(' ')[0]} has not taken this quiz yet.`} />}
@@ -382,7 +393,6 @@ export function ParentQuizPage() {
                 </Section>
               );
             })
-            )
           )}
         </>
       )}

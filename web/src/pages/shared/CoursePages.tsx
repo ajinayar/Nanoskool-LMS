@@ -1,3 +1,5 @@
+import { UnitBlocksView } from '@/components/UnitBlocksView';
+import { BLOCK_META, blocksOf } from '@/lib/unitBlocks';
 import {
   Accordion,
   AccordionDetails,
@@ -11,6 +13,7 @@ import {
   CardContent,
   Chip,
   IconButton,
+  Tooltip,
   Link,
   List,
   ListItemButton,
@@ -29,6 +32,10 @@ import ArticleOutlined from '@mui/icons-material/ArticleOutlined';
 import PictureAsPdfOutlined from '@mui/icons-material/PictureAsPdfOutlined';
 import ConstructionOutlined from '@mui/icons-material/ConstructionOutlined';
 import LinkOutlined from '@mui/icons-material/LinkOutlined';
+import SlideshowOutlined from '@mui/icons-material/SlideshowOutlined';
+import AnimationOutlined from '@mui/icons-material/AnimationOutlined';
+import CollectionsOutlined from '@mui/icons-material/CollectionsOutlined';
+import ViewInArOutlined from '@mui/icons-material/ViewInArOutlined';
 import QuizOutlined from '@mui/icons-material/QuizOutlined';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import ArrowForward from '@mui/icons-material/ArrowForward';
@@ -36,8 +43,11 @@ import SmartToyOutlined from '@mui/icons-material/SmartToyOutlined';
 import Send from '@mui/icons-material/Send';
 import DeleteOutline from '@mui/icons-material/DeleteOutlined';
 import AddComment from '@mui/icons-material/AddCommentOutlined';
-import { useEffect, useRef, useState } from 'react';
-import { Link as RouterLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { NanoAvatar, NanoWelcome } from '@/student/NanoGreeting';
+import { BuddyPickerDialog, useBuddy } from '@/student/BuddyPicker';
+import { useOptionalLook } from '@/student/useLook';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '@/api/client';
 import { type AiChat, type Course, type CourseDetail, type Paged, type UnitDetail, type UnitType } from '@/api/types';
@@ -46,6 +56,15 @@ import { useGet, useSend } from '@/lib/hooks';
 import { useToast } from '@/components/Toast';
 import { CardGrid, Empty, Loading, PageHeader, Progress, QueryState, RichText, StatusChip, fromNow } from '@/components/ui';
 import { useBase } from './CommonPages';
+import Mic from '@mui/icons-material/MicRounded';
+import Stop from '@mui/icons-material/StopRounded';
+import VolumeUp from '@mui/icons-material/VolumeUpRounded';
+import { useVoiceInput } from '@/lib/voice';
+import { usePrefs } from '@/lib/prefs';
+import { LANGUAGES } from '@/lib/languages';
+import { speak } from '@/student/useLook';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 
 export const UNIT_ICON: Record<UnitType, React.ReactNode> = {
   lesson: <ArticleOutlined fontSize="small" />,
@@ -53,6 +72,10 @@ export const UNIT_ICON: Record<UnitType, React.ReactNode> = {
   pdf: <PictureAsPdfOutlined fontSize="small" />,
   activity: <ConstructionOutlined fontSize="small" />,
   link: <LinkOutlined fontSize="small" />,
+  presentation: <SlideshowOutlined fontSize="small" />,
+  motion: <AnimationOutlined fontSize="small" />,
+  gallery: <CollectionsOutlined fontSize="small" />,
+  sim3d: <ViewInArOutlined fontSize="small" />,
 };
 
 const GRADIENTS = ['#3F3DBF,#6B69E0', '#F28B30,#F6B26B', '#2E9D61,#6CC99A', '#C2417B,#E77FAE', '#1C7FB5,#5FB3E0'];
@@ -61,7 +84,16 @@ export function CourseThumb({ course, height = 110 }: { course: Pick<Course, '_i
   return course.thumbnailUrl ? (
     <Box component="img" src={course.thumbnailUrl} alt="" sx={{ width: '100%', height, objectFit: 'cover', display: 'block' }} />
   ) : (
-    <Box sx={{ height, background: `linear-gradient(135deg, ${g})`, color: '#fff', p: 2, display: 'flex', alignItems: 'flex-end' }}>
+    <Box
+      sx={{
+        height,
+        background: `linear-gradient(135deg, ${g})`,
+        color: '#fff',
+        p: 2,
+        display: 'flex',
+        alignItems: 'flex-end',
+      }}
+    >
       <Typography variant="overline" sx={{ opacity: 0.9, fontWeight: 700 }}>
         {course.category ?? 'Course'}
       </Typography>
@@ -72,7 +104,16 @@ export function CourseThumb({ course, height = 110 }: { course: Pick<Course, '_i
 export function CourseCard({ course, to, showProgress }: { course: Course; to: string; showProgress?: boolean }) {
   return (
     <Card sx={{ overflow: 'hidden', height: '100%' }}>
-      <CardActionArea component={RouterLink} to={to} sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+      <CardActionArea
+        component={RouterLink}
+        to={to}
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
+        }}
+      >
         <CourseThumb course={course} />
         <CardContent sx={{ flex: 1 }}>
           <Typography variant="h6" sx={{ mb: 0.5 }}>
@@ -98,7 +139,10 @@ export function CoursesPage({ title = 'Courses', subtitle }: { title?: string; s
   const me = useMe();
   const base = useBase();
   const [q, setQ] = useState('');
-  const query = useGet<Paged<Course>>('/courses', { q: q || undefined, limit: 100 });
+  const query = useGet<Paged<Course>>('/courses', {
+    q: q || undefined,
+    limit: 100,
+  });
   return (
     <>
       <PageHeader title={title} subtitle={subtitle} actions={<TextField placeholder="Search courses" value={q} onChange={(e) => setQ(e.target.value)} sx={{ width: 240 }} />} />
@@ -136,7 +180,12 @@ export function CourseViewPage() {
               <Typography color="text.primary">{c.title}</Typography>
             </Breadcrumbs>
             <Paper variant="outlined" sx={{ overflow: 'hidden', mb: 3 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '280px 1fr' } }}>
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', md: '280px 1fr' },
+                }}
+              >
                 <CourseThumb course={c} height={200} />
                 <Box sx={{ p: 3 }}>
                   <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
@@ -150,7 +199,8 @@ export function CourseViewPage() {
                   <RichText html={c.description} sx={{ color: 'text.secondary' }} />
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 2, alignItems: { sm: 'center' } }}>
                     <Typography variant="body2" color="text.secondary">
-                      {c.chapters.length} chapters · {c.unitCount} units{c.grades?.length ? ` · Grades ${c.grades.join(', ')}` : ''}
+                      {c.chapters.length} chapters · {c.unitCount} units
+                      {c.grades?.length ? ` · Grades ${c.grades.join(', ')}` : ''}
                     </Typography>
                     {(me.role === 'student' || studentId) && (
                       <Box sx={{ width: 220 }}>
@@ -177,7 +227,8 @@ export function CourseViewPage() {
                         Chapter {i + 1}: {ch.title}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {ch.units.length} units{me.role === 'student' || studentId ? ` · ${done} done` : ''}
+                        {ch.units.length} units
+                        {me.role === 'student' || studentId ? ` · ${done} done` : ''}
                       </Typography>
                     </Box>
                   </AccordionSummary>
@@ -188,7 +239,15 @@ export function CourseViewPage() {
                           <ListItemIcon sx={{ minWidth: 36 }}>
                             {me.role === 'student' || studentId ? u.completed ? <CheckCircle color="success" fontSize="small" /> : <RadioButtonUnchecked fontSize="small" color="disabled" /> : UNIT_ICON[u.type]}
                           </ListItemIcon>
-                          <ListItemText primary={u.title} secondary={`${u.type} · ${u.durationMin ?? 10} min`} slotProps={{ secondary: { sx: { textTransform: 'capitalize' } } }} />
+                          <ListItemText
+                            primary={u.title}
+                            secondary={`${u.type} · ${u.durationMin ?? 10} min`}
+                            slotProps={{
+                              secondary: {
+                                sx: { textTransform: 'capitalize' },
+                              },
+                            }}
+                          />
                         </ListItemButton>
                       ))}
                       {c.quizzes
@@ -232,14 +291,7 @@ export function CourseViewPage() {
   );
 }
 
-export const toEmbed = (url?: string) => {
-  if (!url) return '';
-  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{6,})/);
-  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
-  const vm = url.match(/vimeo\.com\/(\d+)/);
-  if (vm && !url.includes('player.vimeo.com')) return `https://player.vimeo.com/video/${vm[1]}`;
-  return url;
-};
+export { toEmbed } from '@/lib/embed';
 
 /** Unit viewer with completion tracking and "Ask NanoBot". */
 export function UnitPage() {
@@ -274,7 +326,12 @@ export function UnitPage() {
           </Breadcrumbs>
           <PageHeader
             title={u.title}
-            subtitle={`${u.type[0].toUpperCase()}${u.type.slice(1)} · about ${u.durationMin ?? 10} minutes`}
+            subtitle={`${
+              blocksOf(u)
+                .map((b) => BLOCK_META[b.kind].label)
+                .filter((x, i, all) => all.indexOf(x) === i)
+                .join(' · ') || 'Lesson'
+            } · about ${u.durationMin ?? 10} minutes`}
             actions={
               me.role !== 'super_admin' && (
                 <Button variant="outlined" startIcon={<SmartToyOutlined />} onClick={askBot}>
@@ -289,31 +346,17 @@ export function UnitPage() {
                 {u.summary}
               </Typography>
             )}
-            {u.videoUrl && (
-              <Box sx={{ position: 'relative', pt: '56.25%', mb: 3, borderRadius: 2, overflow: 'hidden', bgcolor: '#000' }}>
-                {/\.(mp4|webm)$/i.test(u.videoUrl) ? (
-                  <Box component="video" src={u.videoUrl} controls sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
-                ) : (
-                  <Box component="iframe" src={toEmbed(u.videoUrl)} title={u.title} allow="accelerometer; encrypted-media; picture-in-picture" allowFullScreen sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }} />
-                )}
-              </Box>
-            )}
-            <RichText html={u.body} />
-            {u.fileUrl && (
-              <Box sx={{ mt: 3 }}>
-                {/\.pdf$/i.test(u.fileUrl) && <Box component="iframe" src={u.fileUrl} title="PDF" sx={{ width: '100%', height: 600, border: '1px solid #E4E6F0', borderRadius: 1, mb: 1 }} />}
-                <Button variant="outlined" startIcon={<PictureAsPdfOutlined />} href={u.fileUrl} target="_blank" rel="noopener">
-                  Open file
-                </Button>
-              </Box>
-            )}
-            {u.linkUrl && (
-              <Button sx={{ mt: 2 }} variant="outlined" startIcon={<LinkOutlined />} href={u.linkUrl} target="_blank" rel="noopener">
-                Open activity link
-              </Button>
-            )}
+            <UnitBlocksView blocks={blocksOf(u)} radius={12} title={u.title} showNotes={me.role !== 'student' && me.role !== 'parent'} inlinePdf />
           </Paper>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 1,
+            }}
+          >
             <Button startIcon={<ArrowBack />} disabled={!u.prev} component={RouterLink} to={u.prev ? `${base}/units/${u.prev._id}` : '#'}>
               {u.prev ? u.prev.title : 'Previous'}
             </Button>
@@ -357,17 +400,36 @@ export function UnitPage() {
 
 export function NanoBotPage() {
   const me = useMe();
+  const look = useOptionalLook(); // students get Nano's welcome; staff the plain one
+  const location = useLocation();
+  const [fromBuddy] = useState(() => !!(location.state as { fromBuddy?: boolean } | null)?.fromBuddy);
+  const { buddy } = useBuddy();
+  const [picking, setPicking] = useState(false);
   const [params, setParams] = useSearchParams();
   const chatId = params.get('chat');
   const qc = useQueryClient();
   const toast = useToast();
   const chats = useGet<AiChat[]>('/ai/chats');
   const chat = useGet<AiChat>(chatId ? `/ai/chats/${chatId}` : null);
-  const usage = useGet<{ provider: string; used: number; limit: number | null; mine: number }>('/ai/usage');
+  const usage = useGet<{
+    provider: string;
+    used: number;
+    limit: number | null;
+    mine: number;
+  }>('/ai/usage');
   const [text, setText] = useState('');
   const [pending, setPending] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [chat.data?.messages?.length, pending]);
+  // Talk and listen in the student's own language
+  const { prefs, setPrefs } = usePrefs();
+  const lang = prefs.language ?? 'en';
+  const spokeRef = useRef(false);
+  const sayIt = (t: string) => {
+    if (!speak(t.replace(/[*#_`]/g, ''), lang, look ? buddy.voice : undefined)) toast.info(`This device has no ${LANGUAGES[lang]?.name} voice yet.`);
+  };
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chat.data?.messages?.length, pending]);
 
   const newChat = async () => {
     const r = await api.post<AiChat>('/ai/chats', {});
@@ -375,14 +437,17 @@ export function NanoBotPage() {
     setParams({ chat: r.data._id });
     return r.data._id;
   };
-  const send = async () => {
-    const content = text.trim();
+  const send = async (said?: string, spoken = true) => {
+    const content = (said ?? text).trim();
     if (!content) return;
+    spokeRef.current = !!said && spoken;
     setText('');
     setPending(content);
     try {
       const id = chatId ?? (await newChat());
-      await api.post(`/ai/chats/${id}/messages`, { content });
+      const r = await api.post<{ message: { content: string } }>(`/ai/chats/${id}/messages`, { content, lang });
+      // Answer aloud when the question was spoken, or when the student likes things read aloud
+      if (spokeRef.current || prefs.readAloud) sayIt(r.data.message.content);
       await Promise.all([qc.invalidateQueries({ queryKey: [`/ai/chats/${id}`] }), qc.invalidateQueries({ queryKey: ['/ai/chats'] }), qc.invalidateQueries({ queryKey: ['/ai/usage'] }), qc.invalidateQueries({ queryKey: ['/rewards/me'] })]);
     } catch (err) {
       toast.error(errorMessage(err));
@@ -391,22 +456,36 @@ export function NanoBotPage() {
       setPending(null);
     }
   };
-  const remove = useSend('delete', (id: string) => `/ai/chats/${id}`, { invalidate: ['/ai/chats'], onSuccess: () => setParams({}) });
+  const remove = useSend('delete', (id: string) => `/ai/chats/${id}`, {
+    invalidate: ['/ai/chats'],
+    onSuccess: () => setParams({}),
+  });
 
+  const voice = useVoiceInput(lang, (said) => void send(said));
   const messages = chat.data?.messages ?? [];
   return (
     <>
       <PageHeader
         title="NanoBot"
         subtitle={me.role === 'teacher' ? 'Your AI teaching assistant' : 'Your AI study buddy. Ask about any lesson!'}
-        actions={
-          usage.data?.limit ? (
-            <Chip label={`AI allowance: ${Math.max(0, Math.round(100 - (usage.data.used / usage.data.limit) * 100))}% left this month`} variant="outlined" />
-          ) : undefined
-        }
+        actions={usage.data?.limit ? <Chip label={`AI allowance: ${Math.max(0, Math.round(100 - (usage.data.used / usage.data.limit) * 100))}% left this month`} variant="outlined" /> : undefined}
       />
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '260px 1fr' }, gap: 2, height: { md: 'calc(100vh - 230px)' } }}>
-        <Paper variant="outlined" sx={{ p: 1, overflowY: 'auto', display: { xs: chatId ? 'none' : 'block', md: 'block' } }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '260px 1fr' },
+          gap: 2,
+          height: { md: 'calc(100vh - 230px)' },
+        }}
+      >
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1,
+            overflowY: 'auto',
+            display: { xs: chatId ? 'none' : 'block', md: 'block' },
+          }}
+        >
           <Button fullWidth variant="contained" startIcon={<AddComment />} onClick={newChat} sx={{ mb: 1 }}>
             New chat
           </Button>
@@ -416,8 +495,23 @@ export function NanoBotPage() {
             <List dense>
               {(chats.data ?? []).map((c) => (
                 <ListItemButton key={c._id} selected={c._id === chatId} onClick={() => setParams({ chat: c._id })} sx={{ borderRadius: 1 }}>
-                  <ListItemText primary={c.title} secondary={c.unitId ? `${(c.unitId as { title?: string }).title} · ${fromNow(c.updatedAt)}` : fromNow(c.updatedAt)} slotProps={{ primary: { noWrap: true }, secondary: { noWrap: true } }} />
-                  <IconButton size="small" edge="end" aria-label="Delete chat" onClick={(e) => { e.stopPropagation(); remove.mutate(c._id); }}>
+                  <ListItemText
+                    primary={c.title}
+                    secondary={c.unitId ? `${(c.unitId as { title?: string }).title} · ${fromNow(c.updatedAt)}` : fromNow(c.updatedAt)}
+                    slotProps={{
+                      primary: { noWrap: true },
+                      secondary: { noWrap: true },
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    edge="end"
+                    aria-label="Delete chat"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      remove.mutate(c._id);
+                    }}
+                  >
                     <DeleteOutline fontSize="small" />
                   </IconButton>
                 </ListItemButton>
@@ -432,7 +526,10 @@ export function NanoBotPage() {
             </Alert>
           )}
           <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
-            {!messages.length && !pending && (
+            {!messages.length && !pending && look && (
+              <NanoWelcome key={buddy.key} look={look} buddy={buddy} onChangeBuddy={() => setPicking(true)} userId={me._id} name={me.name.split(' ')[0]} lang={lang} fromBuddy={fromBuddy} onAsk={(t) => void send(t, false)} />
+            )}
+            {!messages.length && !pending && !look && (
               <Stack sx={{ alignItems: 'center', textAlign: 'center', py: 6 }} spacing={1}>
                 <SmartToyOutlined sx={{ fontSize: 48, color: 'primary.main' }} />
                 <Typography variant="h6">Hi {me.name.split(' ')[0]}! I am NanoBot.</Typography>
@@ -442,45 +539,100 @@ export function NanoBotPage() {
               </Stack>
             )}
             {messages.map((m, i) => (
-              <Bubble key={i} mine={m.role === 'user'} text={m.content} />
+              <Bubble key={i} mine={m.role === 'user'} text={m.content} onListen={m.role === 'assistant' ? () => sayIt(m.content) : undefined} avatar={m.role === 'assistant' && look ? <NanoAvatar look={look} buddy={buddy} /> : undefined} />
             ))}
             {pending && (
               <>
                 <Bubble mine text={pending} />
-                <Bubble mine={false} text="NanoBot is thinking…" muted />
+                <Bubble mine={false} text="NanoBot is thinking…" muted avatar={look ? <NanoAvatar look={look} buddy={buddy} /> : undefined} />
               </>
             )}
             <div ref={endRef} />
           </Box>
-          <Stack direction="row" spacing={1} sx={{ p: 1.5, borderTop: '1px solid #E4E6F0' }}>
+          {(voice.listening || voice.error) && (
+            <Box sx={{ px: 2, py: 1, bgcolor: voice.error ? '#FFF5F5' : '#F3F0FF', color: voice.error ? 'error.main' : '#5F3DC4', fontWeight: 600, fontSize: 14.5 }} aria-live="polite">
+              {voice.error ?? (voice.interim ? `“${voice.interim}”` : `Listening in ${LANGUAGES[lang]?.name}… speak now`)}
+            </Box>
+          )}
+          <Stack direction="row" spacing={1} sx={{ p: 1.5, borderTop: '1px solid #E4E6F0', alignItems: 'flex-end' }}>
+            <Select
+              size="small"
+              value={lang}
+              onChange={(e) => void setPrefs({ language: String(e.target.value) })}
+              aria-label="Language NanoBot answers in"
+              sx={{ minWidth: 104, '& .MuiSelect-select': { py: 1.1 } }}
+              renderValue={(v) => LANGUAGES[v]?.native ?? v}
+            >
+              {Object.entries(LANGUAGES).map(([code, l]) => (
+                <MenuItem key={code} value={code} lang={code}>
+                  {l.native}{' '}
+                  {code !== 'en' && (
+                    <Box component="span" sx={{ color: 'text.secondary', ml: 1 }}>
+                      {l.name}
+                    </Box>
+                  )}
+                </MenuItem>
+              ))}
+            </Select>
+            {voice.supported && (
+              <Tooltip title={voice.listening ? 'Stop' : `Talk to NanoBot in ${LANGUAGES[lang]?.name}`}>
+                <IconButton
+                  onClick={() => (voice.listening ? voice.stop() : voice.start())}
+                  disabled={!!pending}
+                  aria-label={voice.listening ? 'Stop listening' : 'Talk to NanoBot'}
+                  sx={{
+                    bgcolor: voice.listening ? '#E03131' : '#F3F0FF',
+                    color: voice.listening ? '#fff' : '#5F3DC4',
+                    width: 44,
+                    height: 44,
+                    '&:hover': { bgcolor: voice.listening ? '#C92A2A' : '#E5DBFF' },
+                    ...(voice.listening ? { animation: 'nb-pulse 1.2s infinite', '@keyframes nb-pulse': { '0%': { boxShadow: '0 0 0 0 rgba(224,49,49,.5)' }, '100%': { boxShadow: '0 0 0 12px rgba(224,49,49,0)' } } } : {}),
+                  }}
+                >
+                  {voice.listening ? <Stop /> : <Mic />}
+                </IconButton>
+              </Tooltip>
+            )}
             <TextField
-              placeholder="Type your question…"
+              placeholder={voice.supported ? 'Type or tap the mic and speak…' : 'Type your question…'}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  send();
+                  void send();
                 }
               }}
               multiline
               maxRows={4}
               slotProps={{ htmlInput: { maxLength: 2000 } }}
             />
-            <Button variant="contained" onClick={send} disabled={!text.trim() || !!pending} aria-label="Send">
+            <Button variant="contained" onClick={() => send()} disabled={!text.trim() || !!pending} aria-label="Send">
               <Send />
             </Button>
           </Stack>
         </Paper>
       </Box>
-      {chat.error ? <Alert severity="error" sx={{ mt: 2 }}>{errorMessage(chat.error)}</Alert> : null}
+      {look && <BuddyPickerDialog open={picking} onClose={() => setPicking(false)} look={look} />}
+      {chat.error ? (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {errorMessage(chat.error)}
+        </Alert>
+      ) : null}
     </>
   );
 }
 
-function Bubble({ mine, text, muted }: { mine: boolean; text: string; muted?: boolean }) {
+function Bubble({ mine, text, muted, onListen, avatar }: { mine: boolean; text: string; muted?: boolean; onListen?: () => void; avatar?: ReactNode }) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: mine ? 'flex-end' : 'flex-start', mb: 1.5 }}>
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: mine ? 'flex-end' : 'flex-start',
+        mb: 1.5,
+      }}
+    >
+      {!mine && avatar}
       <Box
         sx={{
           maxWidth: '78%',
@@ -494,6 +646,13 @@ function Bubble({ mine, text, muted }: { mine: boolean; text: string; muted?: bo
         }}
       >
         {text}
+        {onListen && (
+          <Box sx={{ mt: 0.5, textAlign: 'right' }}>
+            <IconButton size="small" onClick={onListen} aria-label="Read this answer aloud" sx={{ color: 'text.secondary' }}>
+              <VolumeUp fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
       </Box>
     </Box>
   );

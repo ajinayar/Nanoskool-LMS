@@ -1,20 +1,4 @@
-import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  LinearProgress,
-  Paper,
-  Radio,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, LinearProgress, Paper, Radio, Stack, TextField, Typography } from '@mui/material';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import ArrowForward from '@mui/icons-material/ArrowForward';
 import TimerOutlined from '@mui/icons-material/TimerOutlined';
@@ -25,59 +9,92 @@ import CelebrationOutlined from '@mui/icons-material/CelebrationOutlined';
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import Replay from '@mui/icons-material/Replay';
 import QuizOutlined from '@mui/icons-material/QuizOutlined';
+import LightbulbOutlined from '@mui/icons-material/LightbulbOutlined';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '@/api/client';
 import { refName, type AttemptResult, type Quiz, type QuizSummary } from '@/api/types';
 import { useGet } from '@/lib/hooks';
 import { useToast } from '@/components/Toast';
-import { DataTable, Empty, PageHeader, QueryState, Section, fmtDate, fmtDateTime } from '@/components/ui';
-import { BackButton, UrlTabs, useTab } from '@/pages/teacher/common';
+import { DataTable, Empty, QueryState, Section, fmtDate, fmtDateTime } from '@/components/ui';
+import { BackButton, useTab } from '@/pages/teacher/common';
 import { ProgressRing, S, attemptsLeft, cheer, quizClosed } from './common';
+import { useLook } from '@/student/useLook';
+import { tint, type Look } from '@/student/looks';
+import { CardButton, EmptyPlay, Fact, PageTitle, PillTabs, PlayCard, Sticker } from '@/student/playful';
 
 /* ------------------------------------------------------------------ List */
 
 const TABS = ['open', 'done'] as const;
 
-function QuizCard({ x }: { x: QuizSummary }) {
+function QuizCard({ x, i, look }: { x: QuizSummary; i: number; look: Look }) {
   const closed = quizClosed(x);
   const left = attemptsLeft(x);
   const tried = (x.attemptsUsed ?? 0) > 0;
+  const color = closed || left === 0 ? '#8A8FA3' : look.tiles[i % look.tiles.length];
+  const best = x.bestPercent;
+  const emoji = best != null && best >= 90 ? '🏆' : best != null && best >= 75 ? '🌟' : tried ? '🎯' : ['🧠', '🚀', '🧩', '💡', '🔬'][i % 5];
   return (
-    <Paper
-      variant="outlined"
-      component={RouterLink}
-      to={`${S}/quizzes/${x._id}`}
-      sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', textDecoration: 'none', color: 'inherit', '&:hover': { bgcolor: '#FAFBFE' }, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}
-    >
-      <Box sx={{ width: 48, height: 48, borderRadius: 3, bgcolor: tried ? 'rgba(46,157,97,0.12)' : 'rgba(242,139,48,0.14)', color: tried ? 'success.main' : 'secondary.main', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-        {tried ? <EmojiEventsOutlined /> : <QuizOutlined />}
+    <PlayCard look={look} color={color} to={`${S}/quizzes/${x._id}`} dim={closed || left === 0}>
+      <Box sx={{ position: 'absolute', top: -10, right: 14 }}>
+        {closed ? (
+          <Sticker color="#8A8FA3">Closed</Sticker>
+        ) : left === 0 ? (
+          <Sticker color="#8A8FA3" tilt={-4}>
+            Done
+          </Sticker>
+        ) : !tried ? (
+          <Sticker color={look.accent}>NEW!</Sticker>
+        ) : best != null && best >= 75 ? (
+          <Sticker color="#23B26D" tilt={-5}>
+            ⭐ Best {best}%
+          </Sticker>
+        ) : null}
       </Box>
-      <Box sx={{ flex: 1, minWidth: 180 }}>
-        <Typography sx={{ fontWeight: 650 }}>{x.title}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {[refName(x.courseId) || refName(x.classId), `${x.questionCount} questions`, x.timeLimitMin ? `${x.timeLimitMin} min` : 'No time limit', x.dueDate ? `${closed ? 'closed' : 'closes'} ${fmtDate(x.dueDate, 'D MMM, h:mm A')}` : '']
-            .filter(Boolean)
-            .join(' · ')}
-        </Typography>
-      </Box>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0 }}>
-        <Chip size="small" variant="outlined" label={`Attempts ${x.attemptsUsed ?? 0}/${x.maxAttempts ?? 1}`} />
-        {x.bestPercent != null && <Chip size="small" color={x.bestPercent >= 75 ? 'success' : 'default'} label={`Best ${x.bestPercent}%`} />}
-        {closed ? <Chip size="small" label="Closed" /> : left > 0 ? <Chip size="small" color="secondary" label={tried ? 'Try again' : 'New'} /> : null}
+      <Stack direction="row" spacing={1.75} sx={{ alignItems: 'center' }}>
+        <Box sx={{ width: 58, height: 58, borderRadius: '18px', bgcolor: tint(color, 0.16), border: `2px solid ${tint(color, 0.3)}`, display: 'grid', placeItems: 'center', fontSize: 30, transform: `rotate(${i % 2 ? 5 : -5}deg)`, flexShrink: 0 }}>
+          {emoji}
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography sx={{ fontWeight: 900, fontSize: 17.5, color: look.ink, lineHeight: 1.25 }}>{x.title}</Typography>
+          <Typography variant="body2" sx={{ color: look.ink2, fontWeight: 600 }} noWrap>
+            {refName(x.courseId) || refName(x.classId) || 'Quiz'}
+          </Typography>
+        </Box>
       </Stack>
-    </Paper>
+      <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.75 }}>
+        <Fact look={look}>❓ {x.questionCount} questions</Fact>
+        <Fact look={look}>⏱️ {x.timeLimitMin ? `${x.timeLimitMin} min` : 'No time limit'}</Fact>
+        <Fact look={look}>
+          🎟️ {left} {left === 1 ? 'try' : 'tries'} left
+        </Fact>
+        {x.dueDate && (
+          <Fact look={look}>
+            📅 {closed ? 'Closed' : 'Closes'} {fmtDate(x.dueDate, 'D MMM')}
+          </Fact>
+        )}
+      </Stack>
+      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1, mt: 'auto' }}>
+        <CardButton color={color}>{closed || left === 0 ? 'See results' : tried ? 'Try again 🔁' : 'Play quiz ▶'}</CardButton>
+        {best != null && (
+          <Typography variant="body2" sx={{ fontWeight: 800, color: best >= 75 ? '#23B26D' : look.ink2 }}>
+            Best: {best}%
+          </Typography>
+        )}
+      </Stack>
+    </PlayCard>
   );
 }
 
 export function StudentQuizzesPage() {
+  const look = useLook();
   const q = useGet<QuizSummary[]>('/quizzes');
   const [tab, setTab] = useTab(TABS, 'open');
   return (
-    <>
-      <PageHeader title="Quizzes" subtitle="Test what you have learned. You get your score straight away!" />
+    <Box sx={{ maxWidth: 1180, mx: 'auto' }}>
+      <PageTitle look={look} emoji="🧠" title={look.words.quizzes} subtitle="Test what you have learned. You get your score straight away!" />
       <QueryState q={q}>
         {(items) => {
           const open = items.filter((x) => !quizClosed(x) && attemptsLeft(x) > 0);
@@ -85,28 +102,34 @@ export function StudentQuizzesPage() {
           const rows = tab === 'open' ? open : done;
           return (
             <>
-              <UrlTabs
+              <PillTabs
+                look={look}
                 value={tab}
                 onChange={setTab}
                 tabs={[
-                  { value: 'open', label: `Ready to take (${open.length})` },
-                  { value: 'done', label: `Finished or closed (${done.length})` },
+                  { value: 'open', label: 'Ready to play', n: open.length, emoji: '🎮' },
+                  { value: 'done', label: 'Finished or closed', n: done.length, emoji: '✅' },
                 ]}
               />
               {rows.length === 0 ? (
-                <Empty title={tab === 'open' ? 'No quizzes waiting for you' : 'No finished quizzes yet'} hint={tab === 'open' ? 'New quizzes from your teachers and courses show up here.' : 'Quizzes you have used all attempts on show here.'} />
+                <EmptyPlay
+                  look={look}
+                  emoji={tab === 'open' ? '🎈' : '📭'}
+                  title={tab === 'open' ? 'No quizzes waiting for you' : 'No finished quizzes yet'}
+                  text={tab === 'open' ? 'New quizzes from your teachers and courses show up here.' : 'Quizzes you have used all your tries on show here.'}
+                />
               ) : (
-                <Stack spacing={1.5}>
-                  {rows.map((x) => (
-                    <QuizCard key={x._id} x={x} />
+                <Box sx={{ display: 'grid', gap: 2.5, pt: 1, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+                  {rows.map((x, i) => (
+                    <QuizCard key={x._id} x={x} i={i} look={look} />
                   ))}
-                </Stack>
+                </Box>
               )}
             </>
           );
         }}
       </QueryState>
-    </>
+    </Box>
   );
 }
 
@@ -125,7 +148,15 @@ export function StudentQuizPage() {
       {(quiz) => (
         <Box sx={{ maxWidth: 860, mx: 'auto' }}>
           {phase !== 'taking' && <BackButton to={`${S}/quizzes`}>Quizzes</BackButton>}
-          {phase === 'intro' && <Intro quiz={quiz} onStart={() => { setRunKey((k) => k + 1); setPhase('taking'); }} />}
+          {phase === 'intro' && (
+            <Intro
+              quiz={quiz}
+              onStart={() => {
+                setRunKey((k) => k + 1);
+                setPhase('taking');
+              }}
+            />
+          )}
           {phase === 'taking' && (
             <Taker
               key={runKey}
@@ -137,7 +168,17 @@ export function StudentQuizPage() {
               onCancel={() => setPhase('intro')}
             />
           )}
-          {phase === 'result' && result && <Results quiz={quiz} result={result} onAgain={() => { setRunKey((k) => k + 1); setPhase('taking'); }} onBack={() => setPhase('intro')} />}
+          {phase === 'result' && result && (
+            <Results
+              quiz={quiz}
+              result={result}
+              onAgain={() => {
+                setRunKey((k) => k + 1);
+                setPhase('taking');
+              }}
+              onBack={() => setPhase('intro')}
+            />
+          )}
         </Box>
       )}
     </QueryState>
@@ -211,6 +252,8 @@ function Taker({ quiz, onDone, onCancel }: { quiz: Quiz; onDone: (r: AttemptResu
   const [startedAt] = useState(() => new Date());
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number[]>>({});
+  const [texts, setTexts] = useState<Record<string, string>>({});
+  const [hints, setHints] = useState<Record<string, boolean>>({});
   const [confirm, setConfirm] = useState(false);
   const [leave, setLeave] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -219,9 +262,11 @@ function Taker({ quiz, onDone, onCancel }: { quiz: Quiz; onDone: (r: AttemptResu
   const [remaining, setRemaining] = useState(deadline ? Math.round((deadline - Date.now()) / 1000) : 0);
   const submitted = useRef(false);
   const answersRef = useRef(answers);
+  const textsRef = useRef(texts);
   useEffect(() => {
     answersRef.current = answers;
-  }, [answers]);
+    textsRef.current = texts;
+  }, [answers, texts]);
 
   const submit = useCallback(
     async (auto = false) => {
@@ -231,7 +276,7 @@ function Taker({ quiz, onDone, onCancel }: { quiz: Quiz; onDone: (r: AttemptResu
       setError('');
       try {
         const payload = {
-          answers: quiz.questions.map((x) => ({ questionId: x._id!, selected: answersRef.current[x._id!] ?? [] })),
+          answers: quiz.questions.map((x) => (x.type === 'short' ? { questionId: x._id!, selected: [], text: (textsRef.current[x._id!] ?? '').trim() } : { questionId: x._id!, selected: answersRef.current[x._id!] ?? [] })),
           startedAt: startedAt.toISOString(),
         };
         const r = await api.post<AttemptResult>(`/quizzes/${quiz._id}/attempts`, payload);
@@ -275,7 +320,8 @@ function Taker({ quiz, onDone, onCancel }: { quiz: Quiz; onDone: (r: AttemptResu
   const x = quiz.questions[index];
   const qid = x._id!;
   const sel = answers[qid] ?? [];
-  const answered = quiz.questions.filter((qq) => (answers[qq._id!] ?? []).length > 0).length;
+  const isDone = (qq: Quiz['questions'][number]) => (qq.type === 'short' ? !!(texts[qq._id!] ?? '').trim() : (answers[qq._id!] ?? []).length > 0);
+  const answered = quiz.questions.filter(isDone).length;
   const multiple = x.type === 'multiple';
   const toggle = (oi: number) =>
     setAnswers((a) => {
@@ -294,13 +340,7 @@ function Taker({ quiz, onDone, onCancel }: { quiz: Quiz; onDone: (r: AttemptResu
           {quiz.title}
         </Typography>
         {deadline ? (
-          <Chip
-            icon={<TimerOutlined />}
-            label={mmss(remaining)}
-            color={lowTime ? 'error' : 'default'}
-            sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', minWidth: 84 }}
-            aria-label={`Time left ${mmss(remaining)}`}
-          />
+          <Chip icon={<TimerOutlined />} label={mmss(remaining)} color={lowTime ? 'error' : 'default'} sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', minWidth: 84 }} aria-label={`Time left ${mmss(remaining)}`} />
         ) : (
           <Box sx={{ width: 84 }} />
         )}
@@ -316,7 +356,7 @@ function Taker({ quiz, onDone, onCancel }: { quiz: Quiz; onDone: (r: AttemptResu
       </Stack>
       <Stack direction="row" spacing={0.75} sx={{ mb: 2, flexWrap: 'wrap', gap: 0.75 }}>
         {quiz.questions.map((qq, i) => {
-          const done = (answers[qq._id!] ?? []).length > 0;
+          const done = isDone(qq);
           return (
             <Box
               key={qq._id}
@@ -347,8 +387,20 @@ function Taker({ quiz, onDone, onCancel }: { quiz: Quiz; onDone: (r: AttemptResu
           {x.text}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-          {multiple ? 'Choose all the answers that are correct' : 'Choose one answer'} · {x.points} point{x.points === 1 ? '' : 's'}
+          {x.type === 'short' ? 'Type your answer' : multiple ? 'Choose all the answers that are correct' : 'Choose one answer'} · {x.points} point{x.points === 1 ? '' : 's'}
         </Typography>
+        {x.mediaUrl && <Box component="img" src={x.mediaUrl} alt="" sx={{ maxWidth: '100%', maxHeight: 320, borderRadius: 3, mb: 2.5, display: 'block' }} />}
+        {x.type === 'short' && (
+          <TextField
+            fullWidth
+            autoFocus
+            placeholder="Your answer"
+            value={texts[qid] ?? ''}
+            onChange={(e) => setTexts((t) => ({ ...t, [qid]: e.target.value }))}
+            onKeyDown={(e) => e.key === 'Enter' && index < total - 1 && setIndex(index + 1)}
+            slotProps={{ input: { sx: { fontSize: 20, fontWeight: 600, borderRadius: 3, bgcolor: '#fff' } }, htmlInput: { 'aria-label': 'Your answer', maxLength: 300 } }}
+          />
+        )}
         <Stack spacing={1.25}>
           {x.options.map((o, oi) => {
             const on = sel.includes(oi);
@@ -374,9 +426,30 @@ function Taker({ quiz, onDone, onCancel }: { quiz: Quiz; onDone: (r: AttemptResu
             );
           })}
         </Stack>
+        {x.hint && (
+          <Box sx={{ mt: 2 }}>
+            {hints[qid] ? (
+              <Alert severity="warning" icon={<LightbulbOutlined />} sx={{ borderRadius: 3 }}>
+                {x.hint}
+              </Alert>
+            ) : (
+              <Button size="small" color="warning" startIcon={<LightbulbOutlined />} onClick={() => setHints((h) => ({ ...h, [qid]: true }))}>
+                Need a hint?
+              </Button>
+            )}
+          </Box>
+        )}
       </Paper>
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" onClick={() => submit()}>Retry</Button>}>
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" onClick={() => submit()}>
+              Retry
+            </Button>
+          }
+        >
           {error}
         </Alert>
       )}
@@ -490,6 +563,14 @@ function Results({ quiz, result, onAgain, onBack }: { quiz: Quiz; result: Attemp
         <Typography sx={{ opacity: 0.9, mb: 2 }}>
           You got {right} of {result.review.length} questions right in {quiz.title}.
         </Typography>
+        {result.passed != null && (
+          <Chip
+            icon={result.passed ? <CheckCircle /> : undefined}
+            label={result.passed ? `Passed · pass mark ${result.passPercent}%` : `Pass mark is ${result.passPercent}% — keep going!`}
+            color={result.passed ? 'success' : 'warning'}
+            sx={{ mb: 2, fontWeight: 700, ...(great ? { bgcolor: '#fff', color: 'success.dark', '& .MuiChip-icon': { color: 'success.main' } } : {}) }}
+          />
+        )}
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
           <ProgressRing value={result.percent} size={128} color={great ? 'inherit' : 'secondary'} light={great} label={`${result.score}/${result.maxScore} pts`} />
         </Box>
@@ -508,6 +589,11 @@ function Results({ quiz, result, onAgain, onBack }: { quiz: Quiz; result: Attemp
         </Stack>
       </Paper>
       <Section title="Check your answers">
+        {result.answersShown === false && (
+          <Alert severity="info" sx={{ mb: 1.5 }}>
+            Your teacher will go through the right answers with you. Here you can see which ones you got right.
+          </Alert>
+        )}
         <Stack spacing={1.5}>
           {result.review.map((r, i) => (
             <Paper key={r.questionId} variant="outlined" sx={{ p: 2, borderLeft: 4, borderLeftColor: r.isCorrect ? 'success.main' : 'error.main' }}>
@@ -519,6 +605,22 @@ function Results({ quiz, result, onAgain, onBack }: { quiz: Quiz; result: Attemp
                 <Chip size="small" label={`${r.points} pt${r.points === 1 ? '' : 's'}`} color={r.isCorrect ? 'success' : 'default'} variant="outlined" />
               </Stack>
               <Stack spacing={0.5} sx={{ pl: 4 }}>
+                {r.mediaUrl && <Box component="img" src={r.mediaUrl} alt="" sx={{ maxWidth: 260, maxHeight: 160, borderRadius: 2, mb: 0.5 }} />}
+                {r.type === 'short' && (
+                  <>
+                    <Typography variant="body2">
+                      Your answer:{' '}
+                      <Box component="b" sx={{ color: r.isCorrect ? 'success.dark' : r.typed ? 'error.main' : 'text.secondary' }}>
+                        {r.typed || 'no answer'}
+                      </Box>
+                    </Typography>
+                    {!r.isCorrect && !!r.accepted?.length && (
+                      <Typography variant="body2" sx={{ color: 'success.dark' }}>
+                        Right answer: <b>{r.accepted.join(' / ')}</b>
+                      </Typography>
+                    )}
+                  </>
+                )}
                 {r.options.map((o, oi) => {
                   const isRight = r.correct.includes(oi);
                   const picked = r.selected.includes(oi);
@@ -533,7 +635,7 @@ function Results({ quiz, result, onAgain, onBack }: { quiz: Quiz; result: Attemp
                     </Stack>
                   );
                 })}
-                {r.selected.length === 0 && (
+                {r.type !== 'short' && r.selected.length === 0 && (
                   <Typography variant="body2" color="text.secondary">
                     You did not answer this one.
                   </Typography>

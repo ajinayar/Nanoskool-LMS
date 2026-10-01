@@ -20,6 +20,9 @@ export const ALLOWED_MIME: Record<string, string> = {
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
   'text/csv': 'csv',
   'text/plain': 'txt',
+  'application/json': 'json', // Lottie motion graphics
+  'model/gltf-binary': 'glb', // 3D models for simulations
+  'model/gltf+json': 'gltf',
   'application/zip': 'zip',
   'application/x-zip-compressed': 'zip',
   'application/octet-stream': 'sb3', // Scratch projects
@@ -43,10 +46,11 @@ function client() {
 
 /** Stores a file under an unguessable name and returns its public URL. */
 export async function saveFile(buffer: Buffer, mime: string, folder: string, originalName = '') {
-  let ext = ALLOWED_MIME[mime] ?? 'bin';
+  // SVG is only ever written by the server itself (cleaned AI animations), never accepted as an upload
+  let ext = ALLOWED_MIME[mime] ?? (mime === 'image/svg+xml' ? 'svg' : 'bin');
   if (mime === 'application/octet-stream') {
     const e = path.extname(originalName).slice(1).toLowerCase();
-    ext = e === 'sb3' || e === 'ino' || e === 'py' ? e : 'bin';
+    ext = ['sb3', 'ino', 'py', 'glb', 'gltf'].includes(e) ? e : 'bin';
   }
   const key = `${folder}/${new Date().toISOString().slice(0, 7)}/${randomToken(18)}.${ext}`;
   if (env.STORAGE_DRIVER === 's3') {

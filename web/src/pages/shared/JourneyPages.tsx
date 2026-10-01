@@ -7,11 +7,13 @@ import { GuidanceList, PortfolioView } from '@/components/JourneyViews';
 
 interface Consent {
   assessment?: boolean;
+  psychometric?: boolean;
+  cognitive?: boolean;
   media?: boolean;
   at?: string;
 }
 
-/** Parent consent for the skills mission and for photo/video evidence. */
+/** Parent consent for the termly checks (Genius Quest, Know Yourself and Thinking Puzzles) and for photo/video evidence. */
 export function ConsentCard({ studentId }: { studentId: string }) {
   const q = useGet<{ consent: Consent }>(`/students/${studentId}/skills`);
   const save = useSend<Consent>('patch', `/students/${studentId}/consent`, { success: 'Saved', invalidate: [`/students/${studentId}`] });
@@ -25,7 +27,9 @@ export function ConsentCard({ studentId }: { studentId: string }) {
         <QueryState q={q}>
           {(d) => (
             <Stack>
-              <FormControlLabel control={<Switch checked={!!d.consent.assessment} onChange={(e) => save.mutate({ assessment: e.target.checked })} />} label="Allow the 21st-century skills mission" />
+              <FormControlLabel control={<Switch checked={!!d.consent.assessment} onChange={(e) => save.mutate({ assessment: e.target.checked })} />} label="Allow the Genius Quest (a termly check of the 8 Genius Habits)" />
+              <FormControlLabel control={<Switch checked={!!d.consent.psychometric} onChange={(e) => save.mutate({ psychometric: e.target.checked })} />} label="Allow Know Yourself (a personal profile — see the Know Yourself tab)" />
+              <FormControlLabel control={<Switch checked={!!d.consent.cognitive} onChange={(e) => save.mutate({ cognitive: e.target.checked })} />} label="Allow Thinking Puzzles (a cognitive profile — see the Thinking Puzzles tab)" />
               <FormControlLabel control={<Switch checked={!!d.consent.media} onChange={(e) => save.mutate({ media: e.target.checked })} />} label="Allow photos and videos of projects as evidence" />
             </Stack>
           )}
@@ -62,7 +66,7 @@ export function ParentJourneyTab({ studentId }: { studentId: string }) {
   const needsConsent = (g.data ?? []).some((a) => a.key === 'consent');
   return (
     <Stack spacing={2.5}>
-      {needsConsent && <Alert severity="info">Please turn on the permissions below so your child can take the skills mission and share project photos and videos.</Alert>}
+      {needsConsent && <Alert severity="info">Please turn on the permissions below so your child can take the Genius Quest and Know Yourself, and share project photos and videos.</Alert>}
       <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', md: '1.6fr 1fr' }, alignItems: 'start' }}>
         <GuidanceCard studentId={studentId} audience="parent" />
         <ConsentCard studentId={studentId} />

@@ -1,5 +1,5 @@
 /** Shared views for the learning journey: outcome bands, skill bars, guidance cards and the portfolio. */
-import { Avatar, Box, Button, Card, CardContent, Chip, LinearProgress, Stack, Typography } from '@mui/material';
+import { Avatar, Box, Button, Card, CardContent, Chip, LinearProgress, Stack, Tooltip, Typography } from '@mui/material';
 import NavigationRounded from '@mui/icons-material/NavigationRounded';
 import TurnRightRounded from '@mui/icons-material/TurnRightRounded';
 import WarningAmberRounded from '@mui/icons-material/WarningAmberRounded';
@@ -12,7 +12,7 @@ import VerifiedRounded from '@mui/icons-material/VerifiedRounded';
 import PrintOutlined from '@mui/icons-material/PrintOutlined';
 import type { ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { BAND_LABEL, BAND_TONE, LEVEL_LABEL, type Advice, type Evidence, type OutcomeBand, type Portfolio, type PortfolioSkill } from '@/api/journey';
+import { BAND_LABEL, BAND_TONE, STAGES, STAGE_INFO, type Stage, type Advice, type Evidence, type OutcomeBand, type Portfolio, type PortfolioSkill } from '@/api/journey';
 import { fmtDate } from './ui';
 
 export function BandChip({ band, score, size = 'small' }: { band: OutcomeBand | null | undefined; score?: number | null; size?: 'small' | 'medium' }) {
@@ -26,30 +26,84 @@ export function bandColor(band: OutcomeBand | null | undefined) {
   return band ? BAND_TONE[band] : ['#F1F1F4', '#9A9AA6'];
 }
 
-export function SkillBars({ skills, compare = true }: { skills: PortfolioSkill[]; compare?: boolean }) {
-  if (!skills.length) return <Typography color="text.secondary">No skills mission taken yet.</Typography>;
+/** The five growth stages as a small track: past stages filled, the current one large. */
+export function StageTrack({ stage, compact }: { stage: Stage | null | undefined; compact?: boolean }) {
+  const at = stage ? STAGES.indexOf(stage) : -1;
   return (
-    <Stack spacing={1.75}>
-      {skills.map((s) => (
-        <Box key={s._id}>
-          <Stack direction="row" sx={{ justifyContent: 'space-between', mb: 0.5, gap: 1 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {s.name}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {s.latest == null ? 'Not assessed' : `${LEVEL_LABEL[s.level!]} · ${s.latest}`}
-              {compare && s.first != null && s.latest != null && s.first !== s.latest ? ` (${s.latest > s.first ? '+' : ''}${s.latest - s.first} since first)` : ''}
-            </Typography>
-          </Stack>
-          <Box sx={{ position: 'relative', height: 10, borderRadius: 999, bgcolor: '#EEEEF2', overflow: 'hidden' }}>
-            <Box sx={{ position: 'absolute', inset: 0, width: `${s.latest ?? 0}%`, bgcolor: s.color || '#8B6CEF', borderRadius: 999 }} />
-            {compare && s.first != null && s.first !== s.latest && <Box sx={{ position: 'absolute', top: 0, bottom: 0, left: `${s.first}%`, width: 2, bgcolor: 'rgba(0,0,0,0.45)' }} title={`First: ${s.first}`} />}
-          </Box>
-        </Box>
-      ))}
+    <Stack direction="row" sx={{ alignItems: 'center', gap: compact ? 0.25 : 0.5 }} aria-label={stage ? `Stage: ${STAGE_INFO[stage].label}` : 'Not assessed yet'}>
+      {STAGES.map((st, i) => {
+        const on = i <= at;
+        const here = i === at;
+        return (
+          <Tooltip key={st} title={`${STAGE_INFO[st].label}: ${STAGE_INFO[st].adult}`}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {i > 0 && <Box sx={{ width: compact ? 6 : 12, height: 3, borderRadius: 2, bgcolor: on ? STAGE_INFO[st].color : '#E6E3DC' }} />}
+              <Box sx={{ width: here ? (compact ? 26 : 34) : compact ? 18 : 24, height: here ? (compact ? 26 : 34) : compact ? 18 : 24, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: here ? (compact ? 15 : 19) : compact ? 10 : 13, bgcolor: on ? STAGE_INFO[st].soft : '#F4F2EE', border: here ? `2px solid ${STAGE_INFO[st].color}` : '1px solid transparent', filter: on ? 'none' : 'grayscale(1)', opacity: on ? 1 : 0.45, transition: 'all .2s' }}>
+                {STAGE_INFO[st].icon}
+              </Box>
+            </Box>
+          </Tooltip>
+        );
+      })}
     </Stack>
   );
 }
+
+/**
+ * My Genius Tree: each Genius Habit is a branch, growing Seed → Sprout → Sapling → Bloom → Fruit.
+ * Shows the academic name for adults, and growth since the first Genius Quest.
+ */
+export function GeniusTree({ skills, audience = 'adult' }: { skills: PortfolioSkill[]; audience?: 'adult' | 'child' }) {
+  if (!skills.some((s) => s.latest != null))
+    return (
+      <Box sx={{ textAlign: 'center', py: 2 }}>
+        <Typography sx={{ fontSize: 34 }}>🌰</Typography>
+        <Typography color="text.secondary">{audience === 'child' ? 'Take your Genius Quest to plant your Genius Tree!' : 'The Genius Quest has not been taken yet, so the tree is still to be planted.'}</Typography>
+      </Box>
+    );
+  const blooming = skills.filter((s) => s.level === 'bloom' || s.level === 'fruit').length;
+  const fruit = skills.filter((s) => s.level === 'fruit').length;
+  return (
+    <Stack spacing={1}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+        {fruit ? `${fruit} habit${fruit === 1 ? ' is' : 's are'} bearing fruit 🍎 · ` : ''}
+        {blooming} of {skills.length} habits blooming or beyond
+      </Typography>
+      {skills.map((s) => {
+        const st = s.level;
+        const grew = s.firstStage && st && STAGES.indexOf(st) > STAGES.indexOf(s.firstStage);
+        return (
+          <Stack key={s._id} direction={{ xs: 'column', sm: 'row' }} sx={{ alignItems: { sm: 'center' }, gap: { xs: 1, sm: 2 }, p: 1.25, borderRadius: 2.5, bgcolor: st === 'fruit' ? '#FFF6EF' : '#FBFAF7', border: '1px solid', borderColor: st === 'fruit' ? '#FFD5B8' : '#EFEBE3' }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Stack direction="row" sx={{ alignItems: 'center', gap: 0.75 }}>
+                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: s.color || '#8B6CEF', flexShrink: 0 }} />
+                <Typography sx={{ fontWeight: 700, fontSize: 15 }} noWrap>
+                  {s.habit || s.name}
+                </Typography>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 2.25 }}>
+                {audience === 'adult' && s.habit && s.habit !== s.name ? `${s.name} · ` : ''}
+                {st ? (audience === 'child' ? STAGE_INFO[st].child : STAGE_INFO[st].adult) : 'Not assessed yet'}
+                {grew ? ` · grew from ${STAGE_INFO[s.firstStage!].label}` : ''}
+              </Typography>
+            </Box>
+            <StageTrack stage={st} />
+            <Box sx={{ width: { sm: 78 }, textAlign: { sm: 'right' } }}>
+              {st && (
+                <Typography variant="body2" sx={{ fontWeight: 700, color: STAGE_INFO[st].color }}>
+                  {STAGE_INFO[st].label}
+                </Typography>
+              )}
+            </Box>
+          </Stack>
+        );
+      })}
+    </Stack>
+  );
+}
+
+/** Older name kept so existing pages keep working. */
+export const SkillBars = ({ skills }: { skills: PortfolioSkill[]; compare?: boolean }) => <GeniusTree skills={skills} />;
 
 const ADVICE_ICON: Record<Advice['kind'], [ReactNode, string, string]> = {
   setup: [<SettingsRounded key="s" />, '#E3E8FB', '#2E4BB8'],
@@ -154,7 +208,7 @@ export function EvidenceCard({ e, footer }: { e: Evidence; footer?: ReactNode })
 }
 
 /** The year portfolio: skills growth, learning outcomes by course and unit, and chosen work. */
-export function PortfolioView({ p, renderEvidenceFooter, printable = true }: { p: Portfolio; renderEvidenceFooter?: (e: Evidence) => ReactNode; printable?: boolean }) {
+export function PortfolioView({ p, renderEvidenceFooter, printable = true, audience = 'adult' }: { p: Portfolio; renderEvidenceFooter?: (e: Evidence) => ReactNode; printable?: boolean; audience?: 'adult' | 'child' }) {
   const s = p.student;
   const all = p.courses.flatMap((c) => c.units.flatMap((u) => u.evidence));
   const featured = p.featured.length ? p.featured : all.filter((e) => e.status === 'verified').slice(0, 6);
@@ -204,16 +258,28 @@ export function PortfolioView({ p, renderEvidenceFooter, printable = true }: { p
         </CardContent>
       </Card>
 
-      <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', md: '1fr 1.4fr' }, mb: 2.5 }}>
-        <Card>
-          <CardContent>
-            <Typography sx={{ fontWeight: 650, mb: 0.5 }}>21st-century skills</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {p.skills.assessedAt ? `Last skills mission ${fmtDate(p.skills.assessedAt)} · the thin line marks the first result` : 'The skills mission has not been taken yet'}
-            </Typography>
-            <SkillBars skills={p.skills.skills} />
-          </CardContent>
-        </Card>
+      <Card sx={{ mb: 2.5, background: 'linear-gradient(180deg, #F4FAEE 0%, #FFFFFF 42%)' }}>
+        <CardContent>
+          <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { sm: 'flex-end' }, gap: 1, mb: 1.5 }}>
+            <Box>
+              <Typography sx={{ fontWeight: 750, fontSize: 18 }}>🌳 My Genius Tree</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Every child is a seed of genius. {p.skills.assessedAt ? `Last Genius Quest ${fmtDate(p.skills.assessedAt)}.` : ''}
+              </Typography>
+            </Box>
+            <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+              {STAGES.map((st) => (
+                <Typography key={st} variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                  {STAGE_INFO[st].icon} {STAGE_INFO[st].label}
+                </Typography>
+              ))}
+            </Stack>
+          </Stack>
+          <GeniusTree skills={p.skills.skills} audience={audience} />
+        </CardContent>
+      </Card>
+
+      <Box sx={{ mb: 2.5 }}>
         <Card>
           <CardContent>
             <Typography sx={{ fontWeight: 650, mb: 2 }}>Learning outcomes</Typography>

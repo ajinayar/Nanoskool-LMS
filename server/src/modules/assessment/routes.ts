@@ -6,7 +6,9 @@ import { badRequest, forbidden, notFound } from '../../lib/errors.js';
 import { cleanHtml } from '../../lib/sanitize.js';
 import { body, idParam, objectId, query } from '../../lib/validate.js';
 import { authenticate, currentUser, requireRole, type AuthUser } from '../../middleware/auth.js';
-import { Assignment, ClassCourse, Quiz, QuizAttempt, Submission, User } from '../../models/index.js';
+import { AiUsage, Assignment, ClassCourse, Quiz, QuizAttempt, Submission, TaskPlan, User } from '../../models/index.js';
+import { offlineSteps, sliceTask } from '../../lib/taskSlicer.js';
+import { quota } from '../ai/routes.js';
 
 export const assessmentRouter = Router();
 assessmentRouter.use(authenticate);
@@ -17,14 +19,23 @@ const questionBody = z
   .object({
     _id: objectId.optional(),
     text: z.string().trim().min(1).max(2000),
-    type: z.enum(['single', 'multiple', 'true_false']).default('single'),
-    options: z.array(z.string().trim().min(1).max(500)).min(2).max(8),
-    correct: z.array(z.number().int().min(0)).min(1),
+    type: z.enum(['single', 'multiple', 'true_false', 'short']).default('single'),
+    options: z.array(z.string().trim().min(1).max(500)).max(8).default([]),
+    correct: z.array(z.number().int().min(0)).default([]),
+    accepted: z.array(z.string().trim().min(1).max(200)).max(10).optional(),
+    mediaUrl: z.string().trim().max(500).refine((u) => u === '' || /^https:\/\//.test(u) || /^\/files\//.test(u), 'Use an uploaded picture or an https:// link').optional(),
+    hint: z.string().trim().max(500).optional(),
     points: z.number().min(0).max(100).default(1),
     explanation: z.string().max(2000).optional(),
   })
+  .refine((q) => q.type === 'short' || q.options.length >= 2, { message: 'Add at least two options' })
+  .refine((q) => q.type !== 'short' || (q.accepted?.length ?? 0) >= 1, { message: 'Short-answer questions need at least one accepted answer' })
+  .refine((q) => q.type === 'short' || q.correct.length >= 1, { message: 'Mark the correct answer' })
   .refine((q) => q.correct.every((c) => c < q.options.length), { message: 'Correct answer index out of range' })
-  .refine((q) => q.type === 'multiple' || q.correct.length === 1, { message: 'Single-answer questions need exactly one correct option' });
+  .refine((q) => q.type === 'multiple' || q.type === 'short' || q.correct.length === 1, { message: 'Single-answer questions need exactly one correct option' });
+
+/** Short answers: case, spacing and end punctuation don't matter. */
+export const normAnswer = (s: string) => s.toLowerCase().normalize('NFKC').replace(/[\s\u00a0]+/g, ' ').trim().replace(/[.!?;:,]+$/, '').trim();
 
 const quizBody = z.object({
   title: z.string().trim().min(1).max(200),
@@ -37,6 +48,9 @@ const quizBody = z.object({
   timeLimitMin: z.number().int().min(1).max(300).optional().nullable(),
   maxAttempts: z.number().int().min(1).max(20).optional(),
   dueDate: z.coerce.date().optional().nullable(),
+  shuffleQuestions: z.boolean().optional(),
+  showAnswers: z.enum(['after_submit', 'never']).optional(),
+  passPercent: z.number().int().min(1).max(100).optional().nullable(),
   status: z.enum(['draft', 'published']).optional(),
 });
 
@@ -68,7 +82,7 @@ async function canViewQuiz(me: AuthUser, quiz: QuizLean) {
 
 function hideAnswers(quiz: Record<string, unknown>) {
   const qs = (quiz.questions as Record<string, unknown>[] | undefined) ?? [];
-  return { ...quiz, questions: qs.map(({ correct: _c, explanation: _e, ...rest }) => rest) };
+  return { ...quiz, questions: qs.map(({ correct: _c, explanation: _e, accepted: _a, ...rest }) => rest) };
 }
 
 assessmentRouter.get('/quizzes', async (req, res) => {
@@ -136,7 +150,10 @@ assessmentRouter.get('/quizzes/:id', async (req, res) => {
   const editable = await canEditQuiz(me, plain);
   if (me.role === 'student') {
     const attempts = await QuizAttempt.find({ quizId: quiz._id, studentId: me.id, submittedAt: { $ne: null } }).sort({ submittedAt: -1 }).lean();
-    return res.json({ ...hideAnswers(quiz), attempts, attemptsLeft: Math.max(0, (quiz.maxAttempts ?? 1) - attempts.length), editable: false });
+    const shown = hideAnswers(quiz) as { questions: unknown[] } & Record<string, unknown>;
+    // Each student gets their own order when the author asked for it
+    if (quiz.shuffleQuestions) shown.questions = [...shown.questions].sort(() => Math.random() - 0.5);
+    return res.json({ ...shown, attempts, attemptsLeft: Math.max(0, (quiz.maxAttempts ?? 1) - attempts.length), editable: false });
   }
   res.json(editable || me.role === 'super_admin' ? { ...quiz, editable } : { ...hideAnswers(quiz), editable });
 });
@@ -172,7 +189,7 @@ assessmentRouter.post('/quizzes/:id/attempts', requireRole('student'), async (re
   const { answers, startedAt } = body(
     req,
     z.object({
-      answers: z.array(z.object({ questionId: objectId, selected: z.array(z.number().int().min(0)).max(8) })).max(200),
+      answers: z.array(z.object({ questionId: objectId, selected: z.array(z.number().int().min(0)).max(8).default([]), text: z.string().max(500).optional() })).max(200),
       startedAt: z.coerce.date().optional(),
     }),
   );
@@ -184,23 +201,38 @@ assessmentRouter.post('/quizzes/:id/attempts', requireRole('student'), async (re
     const ans = answers.find((a) => a.questionId === String(q._id));
     const selected = [...new Set(ans?.selected ?? [])].sort();
     const correct = [...(q.correct ?? [])].sort();
-    const isCorrect = selected.length === correct.length && selected.every((v, i) => v === correct[i]);
+    const typed = (ans?.text ?? '').trim();
+    const isCorrect = q.type === 'short' ? !!typed && (q.accepted ?? []).some((a) => normAnswer(a) === normAnswer(typed)) : selected.length === correct.length && selected.every((v, i) => v === correct[i]);
     if (isCorrect) score += pts;
-    return { questionId: q._id, text: q.text, options: q.options, selected, correct, isCorrect, points: isCorrect ? pts : 0, explanation: q.explanation };
+    const reveal = quiz.showAnswers !== 'never';
+    return {
+      questionId: q._id,
+      type: q.type,
+      text: q.text,
+      mediaUrl: q.mediaUrl,
+      options: q.options,
+      selected,
+      typed,
+      correct: reveal ? correct : [],
+      accepted: reveal && q.type === 'short' ? q.accepted : [],
+      isCorrect,
+      points: isCorrect ? pts : 0,
+      explanation: reveal ? q.explanation : undefined,
+    };
   });
   const percent = maxScore ? Math.round((score / maxScore) * 100) : 0;
   const attempt = await QuizAttempt.create({
     quizId: quiz._id,
     studentId: me.id,
     classId: me.classId,
-    answers: answers.map((a) => ({ questionId: a.questionId, selected: a.selected })),
+    answers: answers.map((a) => ({ questionId: a.questionId, selected: a.selected, text: a.text })),
     score,
     maxScore,
     percent,
     startedAt: startedAt ?? new Date(),
     submittedAt: new Date(),
   });
-  res.status(201).json({ attemptId: attempt._id, score, maxScore, percent, review, attemptsLeft: (quiz.maxAttempts ?? 1) - used - 1 });
+  res.status(201).json({ attemptId: attempt._id, score, maxScore, percent, passed: quiz.passPercent ? percent >= quiz.passPercent : null, passPercent: quiz.passPercent ?? null, answersShown: quiz.showAnswers !== 'never', review, attemptsLeft: (quiz.maxAttempts ?? 1) - used - 1 });
 });
 
 assessmentRouter.get('/quizzes/:id/attempts', async (req, res) => {
@@ -277,8 +309,8 @@ assessmentRouter.get('/assignments', async (req, res) => {
   if (me.role === 'student') studentId = me.id;
   else if (child) studentId = String(child._id);
   if (studentId) {
-    const subs = await Submission.find({ assignmentId: { $in: ids }, studentId }).lean();
-    return res.json(items.map((a) => ({ ...a, submission: subs.find((s) => String(s.assignmentId) === String(a._id)) ?? null })));
+    const [subs, plans] = await Promise.all([Submission.find({ assignmentId: { $in: ids }, studentId }).lean(), TaskPlan.find({ assignmentId: { $in: ids }, studentId }).lean()]);
+    return res.json(items.map((a) => ({ ...a, submission: subs.find((s) => String(s.assignmentId) === String(a._id)) ?? null, steps: plans.find((p) => String(p.assignmentId) === String(a._id))?.steps ?? null })));
   }
   const counts = await Promise.all(ids.map((id) => Submission.countDocuments({ assignmentId: id })));
   const graded = await Promise.all(ids.map((id) => Submission.countDocuments({ assignmentId: id, status: 'graded' })));
@@ -308,7 +340,8 @@ assessmentRouter.get('/assignments/:id', async (req, res) => {
   const a = await loadAssignment(me, idParam(req), 'read');
   const full = await Assignment.findById(a._id).populate('classId', 'name').populate('courseId', 'title').populate('createdBy', 'name').lean();
   if (me.role === 'student') {
-    return res.json({ ...full, submission: await Submission.findOne({ assignmentId: a._id, studentId: me.id }).lean() });
+    const [submission, plan] = await Promise.all([Submission.findOne({ assignmentId: a._id, studentId: me.id }).lean(), TaskPlan.findOne({ assignmentId: a._id, studentId: me.id }).lean()]);
+    return res.json({ ...full, submission, steps: plan?.steps ?? null, stepsBy: plan?.by ?? null });
   }
   if (me.role === 'parent') {
     return res.json({ ...full, submissions: await Submission.find({ assignmentId: a._id, studentId: { $in: me.childIds } }).lean() });
@@ -333,6 +366,30 @@ assessmentRouter.delete('/assignments/:id', requireRole('teacher', 'school_admin
   const a = await loadAssignment(me, idParam(req), 'teach');
   await Promise.all([Assignment.deleteOne({ _id: a._id }), Submission.deleteMany({ assignmentId: a._id })]);
   res.json({ ok: true });
+});
+
+/** "Break it into steps": the student's own small steps for an assignment (AI, or a ready-made plan without AI). */
+assessmentRouter.post('/assignments/:id/steps/generate', requireRole('student'), async (req, res) => {
+  const me = currentUser(req);
+  const a = await loadAssignment(me, idParam(req), 'read');
+  const u = await User.findById(me.id).select('classId prefs.language').populate('classId', 'grade').lean();
+  const grade = (u?.classId as unknown as { grade?: number } | null)?.grade;
+  const q = await quota(me);
+  const useAi = q.limit === null || q.used < q.limit;
+  const r = useAi ? await sliceTask(a, grade, u?.prefs?.language ?? 'en') : { steps: offlineSteps(a), by: 'offline' as const, tokens: 0 };
+  if (r.tokens) await AiUsage.updateOne({ userId: me.id, month: new Date().toISOString().slice(0, 7) }, { $inc: { tokens: r.tokens }, $setOnInsert: { schoolId: me.schoolId } }, { upsert: true });
+  await TaskPlan.updateOne({ studentId: me.id, assignmentId: a._id }, { $set: { steps: r.steps.map((s) => ({ ...s, done: false })), by: r.by } }, { upsert: true });
+  const plan = await TaskPlan.findOne({ studentId: me.id, assignmentId: a._id }).lean();
+  res.json({ steps: plan?.steps ?? [], by: r.by });
+});
+
+assessmentRouter.put('/assignments/:id/steps', requireRole('student'), async (req, res) => {
+  const me = currentUser(req);
+  const a = await loadAssignment(me, idParam(req), 'read');
+  const { steps } = body(req, z.object({ steps: z.array(z.object({ text: z.string().trim().min(1).max(160), minutes: z.number().int().min(1).max(120).default(5), done: z.boolean().default(false) })).max(12) }));
+  const prev = await TaskPlan.findOne({ studentId: me.id, assignmentId: a._id }).lean();
+  await TaskPlan.updateOne({ studentId: me.id, assignmentId: a._id }, { $set: { steps, by: prev?.by ?? 'student' } }, { upsert: true });
+  res.json({ steps: (await TaskPlan.findOne({ studentId: me.id, assignmentId: a._id }).lean())?.steps ?? [] });
 });
 
 assessmentRouter.post('/assignments/:id/submit', requireRole('student'), async (req, res) => {

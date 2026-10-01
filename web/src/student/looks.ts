@@ -4,9 +4,10 @@
  * for things ("My tasks" for Grade 1, "Assignments" for Grade 8).
  *
  * Three layout families carry the looks:
- *   little  (Grades 1–3)  big picture tiles, a mascot, stars, a bottom tab bar, read-aloud
- *   junior  (Grades 4–7)  friendly but tidier, XP levels, badges, quests, top navigation
- *   senior  (Grades 8–10) calm study dashboard, deadlines first, rewards kept in the background
+ *   little  (Grades 1–3)  most playful: big picture tiles, painted art, stars, a bottom tab bar, read-aloud
+ *   junior  (Grades 4–7)  still playful: rounded letters, bright colours, Nano the robot, chunky buttons, XP and badges
+ *   senior  (Grades 8–10) a little calmer but still fun: rounded letters, colourful banners, Nano, study planner layout
+ * Every step is only a small change from the one before, so older students still feel at home.
  */
 import { createTheme, type Theme } from '@mui/material/styles';
 import bgMeadow from '@/assets/little/bg-meadow.webp';
@@ -66,11 +67,10 @@ export interface Look {
 }
 
 const NUNITO = '"Nunito Variable", "Nunito", "Inter Variable", system-ui, sans-serif';
-const INTER = '"Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif';
 
 const LITTLE_WORDS: Words = { home: 'Home', courses: 'Lessons', assignments: 'My tasks', quizzes: 'Quiz games', progress: 'How I’m doing', rewards: 'My stars', nanobot: 'Ask Nano', points: 'stars', level: 'Level' };
 const JUNIOR_WORDS: Words = { home: 'Home', courses: 'My courses', assignments: 'Assignments', quizzes: 'Quizzes', progress: 'My progress', rewards: 'Rewards', nanobot: 'NanoBot', points: 'XP', level: 'Level' };
-const SENIOR_WORDS: Words = { home: 'Dashboard', courses: 'Courses', assignments: 'Assignments', quizzes: 'Quizzes', progress: 'Performance', rewards: 'Achievements', nanobot: 'AI tutor', points: 'XP', level: 'Level' };
+const SENIOR_WORDS: Words = { home: 'Home', courses: 'My courses', assignments: 'Assignments', quizzes: 'Quizzes', progress: 'My progress', rewards: 'Rewards', nanobot: 'NanoBot', points: 'XP', level: 'Level' };
 
 const base = { surface: '#FFFFFF', ink: '#1E2233', ink2: '#5D6275', line: '#E6E8F0', primaryInk: '#FFFFFF' };
 
@@ -149,20 +149,20 @@ export const LOOKS: Record<number, Look> = {
     grade: 4,
     band: 'junior',
     name: 'Jungle Explorers',
-    tagline: 'Every lesson is a new trail.',
+    tagline: 'Every lesson is a new trail!',
     font: NUNITO,
-    headingWeight: 800,
-    fontSize: 15,
-    radius: 22,
-    bg: 'linear-gradient(180deg, #E8F6E4 0%, #FBFAF1 55%, #FFFDF6 100%)',
+    headingWeight: 900,
+    fontSize: 15.5,
+    radius: 24,
+    bg: 'linear-gradient(180deg, #D9F3D0 0%, #F4FBE8 45%, #FFFBEA 100%)',
     ink: '#1F2A22',
-    ink2: '#56645A',
-    line: '#E1E9DD',
+    ink2: '#4E5E52',
+    line: '#DCEBD5',
     primary: '#1E9A55',
-    accent: '#F59E0B',
-    soft: '#E7F5EA',
-    tiles: ['#1E9A55', '#F59E0B', '#EF6A4C', '#3B82F6', '#8B5CF6'],
-    hero: 'linear-gradient(120deg, #1C7C4A 0%, #2FA864 60%, #8BCB4F 100%)',
+    accent: '#FF9F1C',
+    soft: '#E4F6E6',
+    tiles: ['#1E9A55', '#FF9F1C', '#FF6B5B', '#3B8BFF', '#9B6BFF'],
+    hero: 'linear-gradient(120deg, #178A4B 0%, #2FB36A 55%, #9BD24F 100%)',
     heroInk: '#FFFFFF',
     scene: 'jungle',
     mascot: { body: '#4CC274', belly: '#DDF5E4', accessory: 'hat' },
@@ -173,20 +173,20 @@ export const LOOKS: Record<number, Look> = {
     grade: 5,
     band: 'junior',
     name: 'Inventors’ Lab',
-    tagline: 'Try it, test it, build it.',
+    tagline: 'Try it, test it, build it!',
     font: NUNITO,
-    headingWeight: 800,
-    fontSize: 15,
-    radius: 20,
-    bg: 'linear-gradient(180deg, #E4F5F6 0%, #F6F3FF 60%, #FBFAFF 100%)',
+    headingWeight: 900,
+    fontSize: 15.5,
+    radius: 24,
+    bg: 'linear-gradient(180deg, #D4F4F5 0%, #EFF0FF 55%, #FFF6FB 100%)',
     ink: '#1C2A33',
-    ink2: '#556570',
-    line: '#DDE8EC',
-    primary: '#0B8A93',
+    ink2: '#4F606B',
+    line: '#D6E8EC',
+    primary: '#0C98A2',
     accent: '#FF6F3C',
-    soft: '#E2F4F5',
-    tiles: ['#0B8A93', '#FF6F3C', '#7C5CFA', '#F4B400', '#E0457B'],
-    hero: 'linear-gradient(120deg, #0B6F7A 0%, #0F9AA3 55%, #5FC6B8 100%)',
+    soft: '#DDF4F5',
+    tiles: ['#0C98A2', '#FF6F3C', '#8B6BFF', '#FFB800', '#F0508B'],
+    hero: 'linear-gradient(120deg, #0B7F8A 0%, #11A9B2 55%, #6DD3C3 100%)',
     heroInk: '#FFFFFF',
     scene: 'lab',
     mascot: { body: '#FF9A55', belly: '#FFE6D4', accessory: 'goggles' },
@@ -197,20 +197,20 @@ export const LOOKS: Record<number, Look> = {
     grade: 6,
     band: 'junior',
     name: 'Quest Mode',
-    tagline: 'Level up one lesson at a time.',
-    font: INTER,
-    headingWeight: 700,
-    fontSize: 14.5,
-    radius: 18,
-    bg: 'linear-gradient(180deg, #EEF0FF 0%, #F8F6FF 50%, #FDF7FB 100%)',
+    tagline: 'Level up one lesson at a time!',
+    font: NUNITO,
+    headingWeight: 900,
+    fontSize: 15.5,
+    radius: 22,
+    bg: 'linear-gradient(180deg, #E4E6FF 0%, #F4EFFF 50%, #FFF1F8 100%)',
     ink: '#1D1F3A',
-    ink2: '#5A5E7A',
-    line: '#E3E5F3',
-    primary: '#4F46E5',
-    accent: '#EC4899',
-    soft: '#EEEEFE',
-    tiles: ['#4F46E5', '#EC4899', '#14B8A6', '#F59E0B', '#0EA5E9'],
-    hero: 'linear-gradient(120deg, #3730A3 0%, #4F46E5 55%, #A855F7 100%)',
+    ink2: '#565A78',
+    line: '#E0E2F4',
+    primary: '#5B4CF0',
+    accent: '#F0479A',
+    soft: '#ECEBFF',
+    tiles: ['#5B4CF0', '#F0479A', '#16BFA8', '#FFA41B', '#1AA7EC'],
+    hero: 'linear-gradient(120deg, #4231C8 0%, #5B4CF0 50%, #B45CF6 100%)',
     heroInk: '#FFFFFF',
     scene: 'quest',
     mascot: { body: '#7C83FF', belly: '#E6E7FF', accessory: 'headphones' },
@@ -220,45 +220,49 @@ export const LOOKS: Record<number, Look> = {
     ...base,
     grade: 7,
     band: 'junior',
-    name: 'Studio',
-    tagline: 'Your space to learn and make.',
-    font: INTER,
-    headingWeight: 650,
-    fontSize: 14.5,
-    radius: 16,
-    bg: '#F3F5F7',
+    name: 'Maker Studio',
+    tagline: 'Your space to learn, make and share!',
+    font: NUNITO,
+    headingWeight: 850,
+    fontSize: 15.5,
+    radius: 22,
+    bg: 'linear-gradient(180deg, #D8F1EE 0%, #EEF4FF 55%, #FFF4EC 100%)',
     ink: '#18212B',
-    ink2: '#5B6572',
-    line: '#E1E5EA',
-    primary: '#0F766E',
-    accent: '#7C3AED',
-    soft: '#E6F2F1',
-    tiles: ['#0F766E', '#7C3AED', '#E4572E', '#2563EB', '#CA8A04'],
-    hero: 'linear-gradient(120deg, #0F3B3A 0%, #115E59 55%, #0F766E 100%)',
+    ink2: '#536070',
+    line: '#DAE6E8',
+    primary: '#0E8C80',
+    accent: '#8B4DF5',
+    soft: '#DFF2F0',
+    tiles: ['#0E8C80', '#8B4DF5', '#FF6A3D', '#2F7BFF', '#F2B200'],
+    hero: 'linear-gradient(120deg, #0B6F66 0%, #0E8C80 50%, #3FB8A6 100%)',
     heroInk: '#FFFFFF',
+    scene: 'lab',
+    mascot: { body: '#3FC3B3', belly: '#DDF6F2', accessory: 'goggles' },
     words: JUNIOR_WORDS,
   },
   8: {
     ...base,
     grade: 8,
     band: 'senior',
-    name: 'Focus',
-    tagline: 'Plan your week, own your progress.',
-    font: INTER,
-    headingWeight: 600,
-    fontSize: 14,
-    radius: 14,
-    bg: '#F5F6F8',
-    ink: '#111827',
-    ink2: '#5B6474',
-    line: '#E5E7EB',
-    primary: '#2563EB',
-    accent: '#0EA5E9',
-    soft: '#EEF3FE',
-    tiles: ['#2563EB', '#0EA5E9', '#10B981', '#F59E0B', '#8B5CF6'],
-    hero: '#FFFFFF',
-    heroInk: '#111827',
-    sidebar: { bg: '#FFFFFF', ink: '#111827', ink2: '#6B7280', active: '#EEF3FE' },
+    name: 'Mission Control',
+    tagline: 'Plan your week, power up your progress!',
+    font: NUNITO,
+    headingWeight: 850,
+    fontSize: 15,
+    radius: 20,
+    bg: 'linear-gradient(180deg, #E3ECFF 0%, #F2F6FF 50%, #FDF8FF 100%)',
+    ink: '#141B2E',
+    ink2: '#525C73',
+    line: '#DFE5F2',
+    primary: '#2F6BF2',
+    accent: '#FF7A45',
+    soft: '#E8EFFE',
+    tiles: ['#2F6BF2', '#FF7A45', '#14B88A', '#F5B300', '#9D5CF6'],
+    hero: 'linear-gradient(120deg, #1E3FAE 0%, #2F6BF2 55%, #5AA8FF 100%)',
+    heroInk: '#FFFFFF',
+    scene: 'space',
+    mascot: { body: '#6D9BFF', belly: '#E3ECFF', accessory: 'headphones' },
+    sidebar: { bg: '#FFFFFF', ink: '#141B2E', ink2: '#5B6479', active: '#E8EFFE' },
     words: SENIOR_WORDS,
   },
   9: {
@@ -266,45 +270,49 @@ export const LOOKS: Record<number, Look> = {
     grade: 9,
     band: 'senior',
     name: 'Momentum',
-    tagline: 'Consistency beats cramming.',
-    font: INTER,
-    headingWeight: 600,
-    fontSize: 14,
-    radius: 12,
-    bg: '#F3F5F4',
+    tagline: 'Small steps every day add up to big wins!',
+    font: NUNITO,
+    headingWeight: 850,
+    fontSize: 15,
+    radius: 20,
+    bg: 'linear-gradient(180deg, #D9F2E6 0%, #F0F8F3 50%, #FFF8EC 100%)',
     ink: '#0F1A16',
-    ink2: '#56615C',
-    line: '#E2E7E4',
-    primary: '#047857',
-    accent: '#F59E0B',
-    soft: '#E7F3EE',
-    tiles: ['#047857', '#F59E0B', '#2563EB', '#DC2626', '#7C3AED'],
-    hero: '#FFFFFF',
-    heroInk: '#0F1A16',
-    sidebar: { bg: '#0F1F1A', ink: '#F1F5F3', ink2: '#9FB2AA', active: 'rgba(255,255,255,0.09)' },
+    ink2: '#4F5E57',
+    line: '#D9E8E0',
+    primary: '#0B9467',
+    accent: '#FF9F1C',
+    soft: '#E1F4EB',
+    tiles: ['#0B9467', '#FF9F1C', '#2F7BFF', '#F0506E', '#8B5CF6'],
+    hero: 'linear-gradient(120deg, #07704E 0%, #0B9467 55%, #4CC38A 100%)',
+    heroInk: '#FFFFFF',
+    scene: 'jungle',
+    mascot: { body: '#3DC48C', belly: '#DDF5EA', accessory: 'hat' },
+    sidebar: { bg: '#FFFFFF', ink: '#0F1A16', ink2: '#5A6962', active: '#E1F4EB' },
     words: SENIOR_WORDS,
   },
   10: {
     ...base,
     grade: 10,
     band: 'senior',
-    name: 'Board Ready',
-    tagline: 'Your board year, one clear step at a time.',
-    font: INTER,
-    headingWeight: 600,
-    fontSize: 14,
-    radius: 10,
-    bg: '#F6F5F2',
-    ink: '#111111',
-    ink2: '#5C5A55',
-    line: '#E6E3DC',
-    primary: '#18181B',
-    accent: '#D97706',
-    soft: '#F3EFE6',
-    tiles: ['#18181B', '#D97706', '#2563EB', '#059669', '#DB2777'],
-    hero: '#FFFFFF',
-    heroInk: '#111111',
-    sidebar: { bg: '#FFFFFF', ink: '#111111', ink2: '#6B6860', active: '#F3EFE6' },
+    name: 'Launch Pad',
+    tagline: 'Board year? You’ve got this — one step at a time!',
+    font: NUNITO,
+    headingWeight: 850,
+    fontSize: 15,
+    radius: 18,
+    bg: 'linear-gradient(180deg, #FFE9DC 0%, #FFF5EC 50%, #F3F1FF 100%)',
+    ink: '#1D1A24',
+    ink2: '#5E5866',
+    line: '#EFE3DA',
+    primary: '#E4572E',
+    accent: '#6C4CF1',
+    soft: '#FFEDE4',
+    tiles: ['#E4572E', '#6C4CF1', '#14A38B', '#F5A700', '#2F7BFF'],
+    hero: 'linear-gradient(120deg, #C43E1B 0%, #E4572E 50%, #FF9150 100%)',
+    heroInk: '#FFFFFF',
+    scene: 'quest',
+    mascot: { body: '#FF8A5B', belly: '#FFE7DB', accessory: 'helmet' },
+    sidebar: { bg: '#FFFFFF', ink: '#1D1A24', ink2: '#655E6C', active: '#FFEDE4' },
     words: SENIOR_WORDS,
   },
 };
@@ -321,7 +329,10 @@ export function themeFor(look: Look): Theme {
   if (hit) return hit;
   const little = look.band === 'little';
   const senior = look.band === 'senior';
-  const heading = { fontWeight: look.headingWeight, letterSpacing: senior ? '-0.015em' : little ? '-0.005em' : '-0.01em' };
+  // How playful each band is: 3 = Grades 1–3, 2 = Grades 4–7, 1 = Grades 8–10 (each a small step from the last)
+  const play = little ? 3 : senior ? 1 : 2;
+  const heading = { fontWeight: look.headingWeight, letterSpacing: '-0.005em' };
+  const press = play + 1; // depth of the chunky "pressable" button edge, in px
   const t = createTheme({
     palette: {
       mode: 'light',
@@ -330,7 +341,7 @@ export function themeFor(look: Look): Theme {
       background: { default: 'transparent', paper: look.surface },
       text: { primary: look.ink, secondary: look.ink2 },
       divider: look.line,
-      success: { main: little ? '#23B26D' : '#16A34A' },
+      success: { main: '#23B26D' },
       error: { main: '#E0463A' },
       warning: { main: '#E59A0B' },
     },
@@ -338,20 +349,21 @@ export function themeFor(look: Look): Theme {
     typography: {
       fontFamily: look.font,
       fontSize: look.fontSize,
-      h4: { ...heading, fontSize: little ? '2.1rem' : senior ? '1.6rem' : '1.85rem' },
-      h5: { ...heading, fontSize: little ? '1.55rem' : senior ? '1.25rem' : '1.4rem' },
-      h6: { ...heading, fontSize: little ? '1.2rem' : senior ? '1rem' : '1.08rem' },
-      subtitle1: { fontWeight: 600 },
-      button: { textTransform: 'none', fontWeight: little ? 800 : senior ? 500 : 700, letterSpacing: 0 },
+      h4: { ...heading, fontSize: little ? '2.1rem' : senior ? '1.8rem' : '1.95rem' },
+      h5: { ...heading, fontSize: little ? '1.55rem' : senior ? '1.35rem' : '1.45rem' },
+      h6: { ...heading, fontSize: little ? '1.2rem' : senior ? '1.08rem' : '1.12rem' },
+      subtitle1: { fontWeight: 700 },
+      body2: { fontWeight: 500 },
+      button: { textTransform: 'none', fontWeight: little ? 800 : 800, letterSpacing: 0 },
     },
     components: {
       MuiCard: {
-        defaultProps: { variant: senior ? 'outlined' : 'elevation', elevation: 0 },
+        defaultProps: { variant: 'elevation', elevation: 0 },
         styleOverrides: {
           root: {
             borderRadius: look.radius,
-            borderColor: look.line,
-            boxShadow: senior ? 'none' : little ? '0 6px 0 rgba(40,30,80,0.06), 0 2px 10px rgba(40,30,80,0.06)' : '0 1px 2px rgba(20,20,50,0.05), 0 4px 16px rgba(20,20,50,0.05)',
+            border: little ? '1px solid transparent' : `2px solid ${tint(look.primary, 0.16)}`,
+            boxShadow: little ? '0 5px 0 rgba(40,30,80,0.06), 0 2px 12px rgba(40,30,80,0.05)' : `0 ${play + 3}px 0 ${tint(look.primary, 0.13)}, 0 2px 12px rgba(40,30,80,0.04)`,
           },
         },
       },
@@ -360,17 +372,28 @@ export function themeFor(look: Look): Theme {
       MuiButton: {
         defaultProps: { disableElevation: true, size: little ? 'large' : 'medium' },
         styleOverrides: {
-          root: { borderRadius: senior ? 8 : 999, paddingLeft: little ? 22 : 16, paddingRight: little ? 22 : 16, minHeight: little ? 48 : senior ? 36 : 40 },
+          root: {
+            borderRadius: 999,
+            paddingLeft: little ? 22 : 18,
+            paddingRight: little ? 22 : 18,
+            minHeight: little ? 48 : senior ? 40 : 42,
+            transition: 'transform .12s, box-shadow .12s',
+            '&:active': { transform: `translateY(${Math.min(2, press)}px)` },
+          },
+          outlined: { borderWidth: 2, '&:hover': { borderWidth: 2 } },
         },
-        variants: little ? [{ props: { variant: 'contained', color: 'primary' }, style: { boxShadow: `0 4px 0 ${shade(look.primary)}`, '&:hover': { boxShadow: `0 4px 0 ${shade(look.primary)}` } } }] : [],
+        variants: [
+          { props: { variant: 'contained', color: 'primary' }, style: { boxShadow: `0 ${press}px 0 ${shade(look.primary)}`, '&:hover': { boxShadow: `0 ${press}px 0 ${shade(look.primary)}` }, '&:active': { boxShadow: `0 1px 0 ${shade(look.primary)}` } } },
+          { props: { variant: 'contained', color: 'secondary' }, style: { boxShadow: `0 ${press}px 0 ${shade(look.accent)}`, '&:hover': { boxShadow: `0 ${press}px 0 ${shade(look.accent)}` } } },
+        ],
       },
-      MuiChip: { styleOverrides: { root: { fontWeight: little ? 800 : 600, borderRadius: senior ? 6 : 999 } } },
-      MuiLinearProgress: { styleOverrides: { root: { height: little ? 14 : senior ? 6 : 10, borderRadius: 999, backgroundColor: look.soft }, bar: { borderRadius: 999 } } },
+      MuiChip: { styleOverrides: { root: { fontWeight: 800, borderRadius: 999 } } },
+      MuiLinearProgress: { styleOverrides: { root: { height: little ? 14 : senior ? 9 : 11, borderRadius: 999, backgroundColor: look.soft }, bar: { borderRadius: 999 } } },
       MuiTextField: { defaultProps: { size: little ? 'medium' : 'small' } },
-      MuiOutlinedInput: { styleOverrides: { root: { borderRadius: senior ? 8 : 14, backgroundColor: '#FFFFFF' } } },
-      MuiTab: { styleOverrides: { root: { textTransform: 'none', fontWeight: 700 } } },
+      MuiOutlinedInput: { styleOverrides: { root: { borderRadius: 14, backgroundColor: '#FFFFFF' } } },
+      MuiTab: { styleOverrides: { root: { textTransform: 'none', fontWeight: 800 } } },
       MuiDialog: { styleOverrides: { paper: { borderRadius: look.radius } } },
-      MuiTableCell: { styleOverrides: { root: { borderColor: look.line }, head: { color: look.ink2, fontWeight: 600, fontSize: 12.5 } } },
+      MuiTableCell: { styleOverrides: { root: { borderColor: look.line }, head: { color: look.ink2, fontWeight: 700, fontSize: 12.5 } } },
     },
   });
   themes.set(look.grade, t);
@@ -385,6 +408,28 @@ export function shade(hex: string, amount = 0.22) {
 }
 
 /** Light tint of a hex colour, for icon backgrounds. */
+/** Blend a colour toward a soft grey (used by calm mode). */
+export function soften(hex: string, amount = 0.4) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return hex;
+  const n = parseInt(hex.slice(1), 16);
+  const g = [0x9a, 0x9e, 0xae];
+  return `#${[(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c, i) => Math.round(c * (1 - amount) + g[i] * amount).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Calm mode: softer colours, a plain background and no painted backdrop. */
+export function calmLook(look: Look): Look {
+  return {
+    ...look,
+    primary: soften(look.primary, 0.3),
+    accent: soften(look.accent, 0.4),
+    tiles: look.tiles.map((t) => soften(t, 0.45)),
+    bg: '#F6F5F2',
+    hero: `linear-gradient(135deg, ${soften(look.primary, 0.55)} 0%, ${soften(look.primary, 0.35)} 100%)`,
+    art: look.art ? { ...look.art, backdrop: '', heroVideo: undefined } : undefined,
+    scene: undefined,
+  };
+}
+
 export function tint(hex: string, alpha = 0.14) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;

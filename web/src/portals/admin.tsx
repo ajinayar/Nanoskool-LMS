@@ -1,4 +1,6 @@
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
+import DoorFrontOutlined from '@mui/icons-material/DoorFrontOutlined';
+import { AdminDoorsPage } from '@/pages/shared/DoorPages';
 import HandshakeOutlined from '@mui/icons-material/HandshakeOutlined';
 import ApartmentOutlined from '@mui/icons-material/ApartmentOutlined';
 import PeopleOutlined from '@mui/icons-material/PeopleOutlined';
@@ -14,6 +16,8 @@ import CourseEditorPage from '@/pages/admin/AdminCourseEditor';
 import { QuizDetailPage } from '@/components/AdminQuiz';
 import PsychologyOutlined from '@mui/icons-material/PsychologyOutlined';
 import AssessmentStudioPage from '@/pages/admin/AdminAssessment';
+import AdminAiSettingsPage from '@/pages/admin/AdminAiSettings';
+import AutoAwesomeOutlined from '@mui/icons-material/AutoAwesomeOutlined';
 import { sharedRoutes } from './shared';
 import type { Portal } from './types';
 
@@ -30,8 +34,10 @@ export const portal: Portal = {
     { label: 'Users', path: 'users', icon: <PeopleOutlined />, group: 'Organisations' },
     { label: 'Course studio', path: 'courses', icon: <MenuBookOutlined />, group: 'Content' },
     { label: 'Assessment studio', path: 'assessment', icon: <PsychologyOutlined />, group: 'Content' },
+    { label: 'Genius Doors', path: 'doors', icon: <DoorFrontOutlined />, group: 'Content' },
     { label: 'Announcements', path: 'announcements', icon: <CampaignOutlined />, group: 'Communication' },
     { label: 'Events', path: 'events', icon: <EventOutlined />, group: 'Communication' },
+    { label: 'AI settings', path: 'ai', icon: <AutoAwesomeOutlined />, group: 'Settings' },
   ],
   routes: [
     { path: '', element: <AdminDashboard /> },
@@ -44,6 +50,8 @@ export const portal: Portal = {
     { path: 'courses/:id/edit', element: <CourseEditorPage /> },
     { path: 'quizzes/:id', element: <QuizDetailPage /> },
     { path: 'assessment', element: <AssessmentStudioPage /> },
+    { path: 'doors', element: <AdminDoorsPage /> },
+    { path: 'ai', element: <AdminAiSettingsPage /> },
     ...sharedRoutes({ nanobot: false }),
   ],
 };

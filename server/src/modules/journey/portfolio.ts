@@ -9,6 +9,7 @@ import { assertClassAccess, assertStudentAccess } from '../../lib/access.js';
 import { computeOutcomes, type UnitOutcome } from '../../lib/outcomes.js';
 import { idParam, objectId, query } from '../../lib/validate.js';
 import { authenticate, currentUser, requireRole } from '../../middleware/auth.js';
+import { habitNameFor, habitsWithEvidence, stageFor } from '../../lib/genius.js';
 import { AssessmentAttempt, Assignment, Chapter, ClassCourse, ClassSection, Evidence, School, Skill, Submission, Unit, UnitProgress, User } from '../../models/index.js';
 
 export const portfolioRouter = Router();
@@ -33,9 +34,10 @@ async function loadUnits(courseIds: unknown[]) {
 }
 
 async function skillProfile(studentId: unknown) {
-  const [skills, attempts] = await Promise.all([
-    Skill.find({ active: true }).sort({ position: 1 }).lean(),
-    AssessmentAttempt.find({ studentId, status: { $ne: 'in_progress' } }).sort({ submittedAt: 1 }).select('skillScores submittedAt status').lean(),
+  const [skills, attempts, fruit] = await Promise.all([
+    Skill.find({ active: true, framework: { $nin: ['psychometric', 'cognitive'] } }).sort({ position: 1 }).lean(),
+    AssessmentAttempt.find({ studentId, status: { $ne: 'in_progress' }, framework: { $nin: ['psychometric', 'cognitive'] } }).sort({ submittedAt: 1 }).select('skillScores submittedAt status').lean(),
+    habitsWithEvidence(studentId),
   ]);
   const first = attempts[0];
   const latest = attempts.at(-1);
@@ -43,7 +45,12 @@ async function skillProfile(studentId: unknown) {
   return {
     assessedAt: latest?.submittedAt ?? null,
     attempts: attempts.length,
-    skills: skills.map((s) => ({ _id: s._id, name: s.name, color: s.color, first: get(first, s._id)?.score ?? null, latest: get(latest, s._id)?.score ?? null, level: get(latest, s._id)?.level ?? null })),
+    skills: skills.map((s) => {
+      const f = get(first, s._id)?.score ?? null;
+      const l = get(latest, s._id)?.score ?? null;
+      const ev = fruit.has(String(s._id));
+      return { _id: s._id, name: s.name, habit: s.habit || habitNameFor(s.name), color: s.color, first: f, latest: l, firstStage: stageFor(f, false), level: stageFor(l, ev), hasEvidence: ev };
+    }),
   };
 }
 
@@ -106,7 +113,7 @@ const SKILL_TIPS: { match: RegExp; student: string; parent: string; teacher: str
   { match: /problem/i, student: 'When stuck, break the problem into three small steps.', parent: 'Let them solve a small real problem at home before you help.', teacher: 'Use build-and-test tasks where the first try is expected to fail.' },
   { match: /digital|ai/i, student: 'Ask NanoBot to explain a hard idea, then check it in your book.', parent: 'Talk together about which websites and apps can be trusted.', teacher: 'Include a short "check the source" step in research tasks.' },
   { match: /curio|initiative/i, student: 'Write down one question each day and look for the answer.', parent: 'Visit a museum, park or workshop and let them ask the questions.', teacher: 'Start units with a puzzling question and let students propose investigations.' },
-  { match: /self|manage/i, student: 'Plan your week: pick one lesson a day and tick it off.', parent: 'Agree a small daily routine for homework and praise sticking to it.', teacher: 'Share a weekly checklist and check in briefly each Monday.' },
+  { match: /self.?manage/i, student: 'Plan your week: pick one lesson a day and tick it off.', parent: 'Agree a small daily routine for homework and praise sticking to it.', teacher: 'Share a weekly checklist and check in briefly each Monday.' },
 ];
 const tipFor = (name: string, who: Audience) => SKILL_TIPS.find((t) => t.match.test(name))?.[who] ?? '';
 
@@ -119,7 +126,7 @@ async function guidanceFor(studentId: string, audience: Audience): Promise<Advic
     computeOutcomes(units, [studentId]),
     UnitProgress.find({ studentId }).select('unitId').lean(),
     skillProfile(studentId),
-    AssessmentAttempt.findOne({ studentId, status: { $ne: 'in_progress' } }).sort({ submittedAt: -1 }).lean(),
+    AssessmentAttempt.findOne({ studentId, status: { $ne: 'in_progress' }, framework: { $nin: ['psychometric', 'cognitive'] } }).sort({ submittedAt: -1 }).lean(),
     Evidence.find({ studentId, status: 'returned' }).sort({ updatedAt: -1 }).limit(3).lean(),
     Evidence.countDocuments({ studentId, status: 'pending' }),
     Submission.find({ studentId }).select('assignmentId').lean(),
@@ -130,13 +137,13 @@ async function guidanceFor(studentId: string, audience: Audience): Promise<Advic
   const out: Advice[] = [];
   const say = (s: string, t: string, p: string) => (audience === 'student' ? s : audience === 'teacher' ? t : p);
 
-  // Setup: consent and the skills mission
+  // Setup: consent and the Genius Quest
   if (!student.consent?.assessment || !student.consent?.media) {
     out.push({
       key: 'consent',
       kind: 'setup',
       title: say('Ask a grown-up to say yes', 'Consent missing', 'Please give your consent'),
-      text: say('A parent needs to allow your skills mission and project photos.', `${first}'s parent has not yet allowed the skills mission and/or photo and video evidence.`, `Allow ${first}'s skills mission and project photos so their work can count.`),
+      text: say('A parent needs to allow your Genius Quest and project photos.', `${first}'s parent has not yet allowed the Genius Quest and/or photo and video evidence.`, `Allow ${first}'s skills mission and project photos so their work can count.`),
       why: 'Children’s data is only used with a parent’s permission.',
       action: audience === 'parent' ? { label: 'Give consent', to: 'consent' } : undefined,
     });
@@ -146,9 +153,9 @@ async function guidanceFor(studentId: string, audience: Audience): Promise<Advic
     out.push({
       key: 'mission',
       kind: 'setup',
-      title: say('Start your skills mission', 'Skills mission not taken this term', 'Skills mission is ready'),
-      text: say('A short, fun set of puzzles and tasks that shows what you are great at.', `${first} has not taken this term's skills mission.`, `${first} can take this term's skills mission from their home page.`),
-      why: 'It shows strengths and growth in 21st-century skills each term.',
+      title: say('Start your Genius Quest', 'Genius Quest not taken this term', 'Genius Quest is ready'),
+      text: say('A short, fun set of puzzles and tasks that shows what you are great at.', `${first} has not taken this term's Genius Quest.`, `${first} can take this term's skills mission from their home page.`),
+      why: 'It shows how each of the 8 Genius Habits is growing, term by term.',
       action: audience === 'student' ? { label: 'Start', to: 'assessment' } : undefined,
     });
   }
@@ -219,8 +226,9 @@ async function guidanceFor(studentId: string, audience: Audience): Promise<Advic
   if (rated.length) {
     const low = rated[0];
     const high = rated.at(-1)!;
-    out.push({ key: 'skill-grow', kind: 'next', title: say(`Grow your ${low.name.toLowerCase()}`, `Focus skill: ${low.name} (${low.latest})`, `Help ${first} grow ${low.name.toLowerCase()}`), text: tipFor(low.name, audience), why: `Lowest score in the last skills mission (${low.level}).` });
-    if (high !== low) out.push({ key: 'skill-strength', kind: 'strength', title: say(`You shine at ${high.name.toLowerCase()}!`, `Strength: ${high.name} (${high.latest})`, `${first} is strong at ${high.name.toLowerCase()}`), text: say('Keep using it: help a friend with it this week.', `Use ${first} as a peer helper for ${high.name.toLowerCase()} tasks.`, 'Tell them you noticed. Specific praise builds confidence.'), why: 'Highest score in the last skills mission.' });
+    const STAGE = { seed: 'Seed 🌰', sprout: 'Sprout 🌱', sapling: 'Sapling 🌿', bloom: 'Bloom 🌸', fruit: 'Fruit 🍎' } as Record<string, string>;
+    out.push({ key: 'skill-grow', kind: 'next', title: say(`Grow your ${low.habit} habit`, `Help this habit grow: ${low.habit} (${low.name}) is a ${STAGE[low.level ?? 'seed']}`, `Help ${first} grow the ${low.habit} habit`), text: tipFor(low.name, audience), why: `The habit that is growing slowest in the last Genius Quest (${STAGE[low.level ?? 'seed']}).` });
+    if (high !== low) out.push({ key: 'skill-strength', kind: 'strength', title: say(`Your ${high.habit} habit is ${high.level === 'fruit' ? 'bearing fruit' : 'blooming'}!`, `Strength: ${high.habit} (${high.name}) is a ${STAGE[high.level ?? 'seed']}`, `${first}'s ${high.habit} habit is growing strong`), text: say('Keep using it: help a friend with it this week.', `Use ${first} as a peer helper for ${high.name.toLowerCase()} tasks. Helping others grow a habit is how it bears fruit.`, 'Tell them you noticed. Specific praise builds the habit.'), why: `Their strongest habit in the last Genius Quest (${STAGE[high.level ?? 'seed']}).` });
   }
 
   // Next turn: the next lesson not yet finished

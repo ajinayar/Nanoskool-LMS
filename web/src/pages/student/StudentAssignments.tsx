@@ -1,17 +1,27 @@
-import { Alert, Box, Button, Chip, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, LinearProgress, Paper, Stack, TextField, Typography } from '@mui/material';
+import MenuBookOutlined from '@mui/icons-material/MenuBookOutlined';
+import ConstructionOutlined from '@mui/icons-material/ConstructionOutlined';
+import ExtensionOutlined from '@mui/icons-material/ExtensionOutlined';
+import ScheduleRounded from '@mui/icons-material/ScheduleRounded';
+import AssignmentOutlined from '@mui/icons-material/AssignmentOutlined';
+import dayjs from 'dayjs';
+import { useLook } from '@/student/useLook';
+import { NextSteps, TaskSteps } from '@/student/TaskSteps';
+import { shade, tint, type Look } from '@/student/looks';
+import { PageTitle } from '@/student/playful';
 import AttachFileOutlined from '@mui/icons-material/AttachFileOutlined';
 import LinkOutlined from '@mui/icons-material/LinkOutlined';
 import SendOutlined from '@mui/icons-material/SendOutlined';
 import EmojiEventsOutlined from '@mui/icons-material/EmojiEventsOutlined';
 import Close from '@mui/icons-material/Close';
 import EditOutlined from '@mui/icons-material/EditOutlined';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
 import { refName, type Assignment } from '@/api/types';
 import { useGet, useSend } from '@/lib/hooks';
-import { DueDate, Empty, PageHeader, QueryState, RichText, Section, StatusChip, UploadButton, fmtDateTime } from '@/components/ui';
-import { BackButton, KIND_LABEL, UrlTabs, useTab } from '@/pages/teacher/common';
+import { DueDate, PageHeader, QueryState, RichText, Section, StatusChip, UploadButton, fmtDateTime } from '@/components/ui';
+import { BackButton, KIND_LABEL, useTab } from '@/pages/teacher/common';
 import { fileName, isLate } from '@/pages/teacher/AssignmentPages';
 import { S, assignmentState, type AssignmentState } from './common';
 
@@ -26,84 +36,220 @@ const STATE_CHIP: Record<AssignmentState, { status: string; label: string }> = {
 
 const TABS = ['todo', 'submitted', 'graded'] as const;
 
-function AssignmentRow({ a }: { a: Assignment }) {
+const KIND_EMOJI: Record<string, string> = { homework: '📝', project: '🛠️', activity: '🧩' };
+const KIND_ICON: Record<string, ReactNode> = { homework: <MenuBookOutlined />, project: <ConstructionOutlined />, activity: <ExtensionOutlined /> };
+
+/** "Due in 3 days", "Due today", "2 days late" */
+function dueText(a: Assignment) {
+  if (!a.dueDate) return { text: 'No due date', tone: 'calm' as const };
+  const d = dayjs(a.dueDate);
+  const days = d.startOf('day').diff(dayjs().startOf('day'), 'day');
+  if (d.isBefore(dayjs())) return { text: days === 0 ? 'Was due today' : `${-days} day${days === -1 ? '' : 's'} late`, tone: 'late' as const };
+  if (days === 0) return { text: `Due today, ${d.format('h:mm A')}`, tone: 'soon' as const };
+  if (days === 1) return { text: `Due tomorrow, ${d.format('h:mm A')}`, tone: 'soon' as const };
+  if (days <= 7) return { text: `Due in ${days} days · ${d.format('ddd D MMM')}`, tone: 'week' as const };
+  return { text: `Due ${d.format('D MMM')}`, tone: 'calm' as const };
+}
+
+function AssignmentCard({ a, look }: { a: Assignment; look: Look }) {
   const st = assignmentState(a);
-  const accent = st === 'overdue' ? 'error.main' : st === 'returned' ? 'warning.main' : st === 'graded' ? 'success.main' : st === 'submitted' ? 'info.main' : 'primary.main';
+  const due = dueText(a);
+  const toneColor = { late: '#D9480F', soon: '#E67700', week: look.primary, calm: look.ink2 }[due.tone];
+  const kindColor = { homework: look.tiles[0] ?? look.primary, project: look.tiles[1] ?? look.accent, activity: look.tiles[2] ?? look.primary }[a.kind] ?? look.primary;
+  const cta = st === 'graded' ? 'See feedback' : st === 'submitted' ? 'View' : st === 'returned' ? 'Fix and resend' : st === 'closed' ? 'View' : 'Start';
+  const pct = st === 'graded' && a.maxPoints ? Math.round(((a.submission?.points ?? 0) / a.maxPoints) * 100) : null;
   return (
-    <Paper
-      variant="outlined"
+    <Box
       component={RouterLink}
       to={`${S}/assignments/${a._id}`}
-      sx={{ p: 2, display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, textDecoration: 'none', color: 'inherit', borderLeft: 4, borderLeftColor: accent, '&:hover': { bgcolor: '#FAFBFE' } }}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1.5,
+        p: 2.25,
+        borderRadius: `${look.radius}px`,
+        bgcolor: look.surface,
+        border: `2px solid ${st === 'overdue' || st === 'returned' ? tint('#D9480F', 0.4) : tint(kindColor, 0.28)}`,
+        boxShadow: `0 5px 0 ${st === 'overdue' || st === 'returned' ? tint('#D9480F', 0.22) : tint(kindColor, 0.2)}`,
+        textDecoration: 'none',
+        color: 'inherit',
+        transition: 'transform .15s, box-shadow .15s',
+        '&:hover': { transform: 'translateY(-3px)', boxShadow: `0 8px 0 ${tint(kindColor, 0.26)}` },
+      }}
     >
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontWeight: 650 }}>{a.title}</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {KIND_LABEL[a.kind]}
-          {refName(a.courseId) ? ` · ${refName(a.courseId)}` : ''}
-          {refName(a.createdBy) ? ` · ${refName(a.createdBy)}` : ''}
-        </Typography>
-      </Box>
-      {st === 'graded' ? (
-        <Chip color="success" icon={<EmojiEventsOutlined />} label={`${a.submission?.points ?? 0}/${a.maxPoints} points`} />
-      ) : st === 'submitted' ? (
-        <Typography variant="body2" color="text.secondary">
-          Sent {fmtDateTime(a.submission?.submittedAt)}
-        </Typography>
-      ) : (
-        <DueDate date={a.dueDate} />
-      )}
-      <Box sx={{ alignSelf: { xs: 'flex-start', sm: 'center' } }}>
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'flex-start' }}>
+        <Box sx={{ width: 52, height: 52, borderRadius: '16px', bgcolor: tint(kindColor, 0.16), border: `2px solid ${tint(kindColor, 0.3)}`, color: kindColor, display: 'grid', placeItems: 'center', flexShrink: 0, transform: 'rotate(-5deg)', fontSize: 26 }}>{KIND_EMOJI[a.kind] ?? KIND_ICON[a.kind]}</Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: kindColor }}>{KIND_LABEL[a.kind]}</Typography>
+          <Typography sx={{ fontWeight: 900, fontSize: 17.5, color: look.ink, lineHeight: 1.3 }}>{a.title}</Typography>
+          <Typography variant="body2" sx={{ color: look.ink2 }} noWrap>
+            {[refName(a.courseId), refName(a.createdBy)].filter(Boolean).join(' · ')}
+          </Typography>
+        </Box>
         <StatusChip status={STATE_CHIP[st].status} label={STATE_CHIP[st].label} />
+      </Stack>
+      <Box sx={{ borderTop: `1px dashed ${look.line}`, pt: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        {st === 'graded' ? (
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flex: 1, minWidth: 160 }}>
+            <EmojiEventsOutlined sx={{ color: '#2F9E44', fontSize: 20 }} />
+            <Typography sx={{ fontWeight: 750, color: look.ink }}>
+              {a.submission?.points ?? 0}/{a.maxPoints}
+            </Typography>
+            <LinearProgress variant="determinate" value={pct ?? 0} sx={{ flex: 1, height: 6, borderRadius: 999, bgcolor: look.line, '& .MuiLinearProgress-bar': { bgcolor: '#2F9E44' } }} />
+          </Stack>
+        ) : st === 'submitted' ? (
+          <Typography variant="body2" sx={{ color: look.ink2, flex: 1 }}>
+            Sent {fmtDateTime(a.submission?.submittedAt)} · waiting for your teacher
+          </Typography>
+        ) : a.steps?.length ? (
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flex: 1, minWidth: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: look.primary, whiteSpace: 'nowrap' }}>
+              🪜 {a.steps.filter((x) => x.done).length}/{a.steps.length} steps
+            </Typography>
+            <Typography variant="body2" sx={{ color: toneColor }} noWrap>
+              · {due.text}
+            </Typography>
+          </Stack>
+        ) : (
+          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flex: 1, color: toneColor, '& svg': { fontSize: 18 } }}>
+            <ScheduleRounded />
+            <Typography variant="body2" sx={{ fontWeight: 650, color: 'inherit' }}>
+              {due.text}
+            </Typography>
+            <Typography variant="body2" sx={{ color: look.ink2 }}>
+              · {a.maxPoints} points
+            </Typography>
+          </Stack>
+        )}
+        <Box sx={{ px: 1.75, py: 0.75, borderRadius: 999, fontSize: 14, fontWeight: 900, bgcolor: st === 'todo' || st === 'overdue' || st === 'returned' ? kindColor : tint(kindColor, 0.12), color: st === 'todo' || st === 'overdue' || st === 'returned' ? '#fff' : kindColor, boxShadow: st === 'todo' || st === 'overdue' || st === 'returned' ? `0 3px 0 ${shade(kindColor)}` : 'none' }}>
+          {cta} →
+        </Box>
       </Box>
-    </Paper>
+    </Box>
+  );
+}
+
+function Stat({ look, label, value, color, icon }: { look: Look; label: string; value: ReactNode; color: string; icon: ReactNode }) {
+  return (
+    <Box sx={{ p: 2, borderRadius: `${look.radius}px`, bgcolor: look.surface, border: `1px solid ${look.line}`, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+      <Box sx={{ width: 40, height: 40, borderRadius: '12px', bgcolor: tint(color, 0.14), color, display: 'grid', placeItems: 'center', '& svg': { fontSize: 22 } }}>{icon}</Box>
+      <Box>
+        <Typography sx={{ fontWeight: 800, fontSize: 22, lineHeight: 1.1, color: look.ink }}>{value}</Typography>
+        <Typography variant="body2" sx={{ color: look.ink2 }}>
+          {label}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function Group({ look, title, items, hint }: { look: Look; title: string; items: Assignment[]; hint?: string }) {
+  if (!items.length) return null;
+  return (
+    <Box>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline', mb: 1.25 }}>
+        <Typography component="h2" sx={{ fontWeight: 750, fontSize: 16, color: look.ink }}>
+          {title}
+        </Typography>
+        <Typography variant="body2" sx={{ color: look.ink2 }}>
+          {items.length}
+          {hint ? ` · ${hint}` : ''}
+        </Typography>
+      </Stack>
+      <Box sx={{ display: 'grid', gap: 1.75, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        {items.map((a) => (
+          <AssignmentCard key={a._id} a={a} look={look} />
+        ))}
+      </Box>
+    </Box>
   );
 }
 
 export function StudentAssignmentsPage() {
+  const look = useLook();
   const q = useGet<Assignment[]>('/assignments');
   const [tab, setTab] = useTab(TABS, 'todo');
   return (
-    <>
-      <PageHeader title="Assignments" subtitle="Homework, projects and activities from your teachers" />
+    <Box sx={{ maxWidth: 1180, mx: 'auto' }}>
+      <PageTitle look={look} emoji="🎒" title={look.words.assignments} subtitle="Homework, projects and activities from your teachers" />
       <QueryState q={q}>
         {(items) => {
-          const groups = {
-            todo: items.filter((a) => ['todo', 'overdue', 'returned', 'closed'].includes(assignmentState(a))),
-            submitted: items.filter((a) => assignmentState(a) === 'submitted'),
-            graded: items.filter((a) => assignmentState(a) === 'graded'),
-          };
-          // Overdue and returned work first, then by due date
-          const order: Record<AssignmentState, number> = { returned: 0, overdue: 1, todo: 2, closed: 3, submitted: 4, graded: 5 };
-          const rows = [...groups[tab]].sort((a, b) => order[assignmentState(a)] - order[assignmentState(b)]);
+          const byState = (s: AssignmentState[]) => items.filter((a) => s.includes(assignmentState(a)));
+          const todo = byState(['todo', 'overdue', 'returned']);
+          const soon = todo.filter((a) => a.dueDate && dayjs(a.dueDate).diff(dayjs(), 'day') < 7);
+          const graded = byState(['graded']);
+          const avg = graded.length ? Math.round((graded.reduce((n, a) => n + (a.submission?.points ?? 0) / (a.maxPoints || 1), 0) / graded.length) * 100) : null;
+          const byDue = (a: Assignment, b: Assignment) => (a.dueDate ? dayjs(a.dueDate).valueOf() : Infinity) - (b.dueDate ? dayjs(b.dueDate).valueOf() : Infinity);
+          const attention = byState(['returned', 'overdue']).sort(byDue);
+          const week = byState(['todo']).filter((a) => a.dueDate && dayjs(a.dueDate).diff(dayjs(), 'day') < 7).sort(byDue);
+          const later = byState(['todo']).filter((a) => !week.includes(a)).sort(byDue);
+          const closed = byState(['closed']);
+          const submitted = byState(['submitted']).sort((a, b) => dayjs(b.submission?.submittedAt).valueOf() - dayjs(a.submission?.submittedAt).valueOf());
+          const gradedSorted = [...graded].sort((a, b) => dayjs(b.submission?.gradedAt ?? b.submission?.submittedAt).valueOf() - dayjs(a.submission?.gradedAt ?? a.submission?.submittedAt).valueOf());
+          const TAB_LIST = [
+            { value: 'todo' as const, label: 'To do', n: todo.length },
+            { value: 'submitted' as const, label: 'Submitted', n: submitted.length },
+            { value: 'graded' as const, label: 'Graded', n: graded.length },
+          ];
           return (
-            <>
-              <UrlTabs
-                value={tab}
-                onChange={setTab}
-                tabs={[
-                  { value: 'todo', label: `To do (${groups.todo.filter((a) => assignmentState(a) !== 'closed').length})` },
-                  { value: 'submitted', label: `Submitted (${groups.submitted.length})` },
-                  { value: 'graded', label: `Graded (${groups.graded.length})` },
-                ]}
-              />
-              {rows.length === 0 ? (
-                <Empty
-                  title={tab === 'todo' ? 'All caught up!' : tab === 'submitted' ? 'Nothing waiting for a grade' : 'No graded work yet'}
-                  hint={tab === 'todo' ? 'You have no assignments to do right now.' : tab === 'submitted' ? 'Work you hand in shows here until your teacher grades it.' : 'Grades and feedback from your teachers show here.'}
-                />
-              ) : (
-                <Stack spacing={1.5}>
-                  {rows.map((a) => (
-                    <AssignmentRow key={a._id} a={a} />
-                  ))}
-                </Stack>
-              )}
-            </>
+            <Stack spacing={3}>
+              <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' } }}>
+                <Stat look={look} label="To do" value={todo.length} color={look.primary} icon={<AssignmentOutlined />} />
+                <Stat look={look} label="Due this week" value={soon.length} color="#E67700" icon={<ScheduleRounded />} />
+                <Stat look={look} label="Waiting for grade" value={submitted.length} color="#1C7ED6" icon={<SendOutlined />} />
+                <Stat look={look} label="Average score" value={avg == null ? '—' : `${avg}%`} color="#2F9E44" icon={<EmojiEventsOutlined />} />
+              </Box>
+
+              <NextSteps items={items} look={look} />
+
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                {TAB_LIST.map((t) => {
+                  const on = t.value === tab;
+                  return (
+                    <Box
+                      key={t.value}
+                      component="button"
+                      onClick={() => setTab(t.value)}
+                      aria-pressed={on}
+                      sx={{ cursor: 'pointer', font: 'inherit', fontWeight: 700, fontSize: 14.5, px: 2, py: 0.9, borderRadius: 999, border: `1px solid ${on ? look.primary : look.line}`, bgcolor: on ? look.primary : look.surface, color: on ? '#fff' : look.ink, display: 'flex', gap: 1, alignItems: 'center' }}
+                    >
+                      {t.label}
+                      <Box component="span" sx={{ minWidth: 22, px: 0.75, borderRadius: 999, fontSize: 12.5, bgcolor: on ? 'rgba(255,255,255,0.25)' : tint(look.primary, 0.1), color: on ? '#fff' : look.primary }}>
+                        {t.n}
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Stack>
+
+              {tab === 'todo' &&
+                (todo.length === 0 && !closed.length ? (
+                  <EmptyState look={look} emoji="🎉" title="All caught up!" text="You have no assignments to do right now. New work from your teachers will show up here." />
+                ) : (
+                  <Stack spacing={3}>
+                    <Group look={look} title="Needs attention" hint="late or sent back for changes" items={attention} />
+                    <Group look={look} title="Due this week" items={week} />
+                    <Group look={look} title="Coming up" items={later} />
+                    <Group look={look} title="Closed" hint="the due date has passed" items={closed} />
+                  </Stack>
+                ))}
+              {tab === 'submitted' && (submitted.length ? <Group look={look} title="Waiting for your teacher" items={submitted} /> : <EmptyState look={look} emoji="📬" title="Nothing waiting for a grade" text="Work you hand in shows here until your teacher grades it." />)}
+              {tab === 'graded' && (gradedSorted.length ? <Group look={look} title="Graded" items={gradedSorted} /> : <EmptyState look={look} emoji="🏅" title="No graded work yet" text="Grades and feedback from your teachers show here." />)}
+            </Stack>
           );
         }}
       </QueryState>
-    </>
+    </Box>
+  );
+}
+
+function EmptyState({ look, emoji, title, text }: { look: Look; emoji: string; title: string; text: string }) {
+  return (
+    <Box sx={{ textAlign: 'center', py: 6, px: 2, borderRadius: `${look.radius}px`, border: `1px dashed ${look.line}`, bgcolor: look.surface }}>
+      <Box sx={{ fontSize: 44, mb: 1 }}>{emoji}</Box>
+      <Typography sx={{ fontWeight: 750, fontSize: 18, color: look.ink }}>{title}</Typography>
+      <Typography sx={{ color: look.ink2, maxWidth: 420, mx: 'auto' }}>{text}</Typography>
+    </Box>
   );
 }
 
@@ -153,6 +299,7 @@ function SubmitForm({ a, onDone }: { a: Assignment; onDone?: () => void }) {
 
 export function StudentAssignmentDetailPage() {
   const { id } = useParams();
+  const look = useLook();
   const q = useGet<Assignment>(`/assignments/${id}`);
   const [editing, setEditing] = useState(false);
   return (
@@ -206,6 +353,11 @@ export function StudentAssignmentDetailPage() {
                 )}
               </Stack>
             </Section>
+            {canSubmit && (st === 'todo' || st === 'overdue' || st === 'returned') && (
+              <Section title="My small steps">
+                <TaskSteps a={a} look={look} />
+              </Section>
+            )}
             <Section
               title={sub && !editing ? 'Your work' : 'Hand in your work'}
               action={

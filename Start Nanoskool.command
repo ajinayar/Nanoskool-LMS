@@ -28,10 +28,13 @@ lsof -ti tcp:4000 | xargs kill 2>/dev/null
 lsof -ti tcp:5173 | xargs kill 2>/dev/null
 sleep 1
 
-if [ ! -d server/node_modules ] || [ ! -d web/node_modules ]; then
-  say_step "First run: installing the app (this takes a few minutes)…"
-  (cd server && npm install) && (cd web && npm install)
-fi
+# Install on first run, and again whenever an update adds new building blocks (package.json changed)
+for part in server web; do
+  if [ ! -d "$part/node_modules" ] || [ "$part/package.json" -nt "$part/node_modules/.package-lock.json" ]; then
+    say_step "Installing updates for the $part (this can take a few minutes)…"
+    (cd "$part" && npm install)
+  fi
+done
 
 if [ ! -f logs/.demo-grades-done ]; then
   say_step "Adding the demo students for Grades 1–10 (first time only)…"

@@ -10,6 +10,13 @@ import { corsOrigins, env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { aiRouter } from './modules/ai/routes.js';
+import { slidesAiRouter } from './modules/ai/slides.js';
+import { blocksAiRouter } from './modules/ai/blocks.js';
+import { aiSettingsRouter } from './modules/ai/settings.js';
+import { translationsRouter } from './modules/curriculum/translations.js';
+import { psychometricRouter } from './modules/skills/psychometric.js';
+import { cognitiveRouter } from './modules/skills/cognitive.js';
+import { doorsRouter } from './modules/doors/routes.js';
 import { assessmentRouter } from './modules/assessment/routes.js';
 import { authRouter } from './modules/auth/routes.js';
 import { curriculumRouter } from './modules/curriculum/routes.js';
@@ -55,15 +62,22 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api', uploadsRouter);
   app.use('/api', orgRouter);
+  app.use('/api', translationsRouter);
   app.use('/api', curriculumRouter);
   app.use('/api', assessmentRouter);
   app.use('/api', schoolLifeRouter);
   app.use('/api', dashboardRouter);
   app.use('/api', aiRouter);
+  app.use('/api', aiSettingsRouter);
+  app.use('/api', slidesAiRouter);
+  app.use('/api', blocksAiRouter);
+  app.use('/api', psychometricRouter);
+  app.use('/api', cognitiveRouter);
   app.use('/api', rewardsRouter);
   app.use('/api', journeyRouter);
   app.use('/api', skillsRouter);
   app.use('/api', portfolioRouter);
+  app.use('/api', doorsRouter);
 
   // Locally stored uploads (production should use STORAGE_DRIVER=s3)
   app.use('/files', express.static(path.resolve(env.UPLOAD_DIR), { maxAge: '7d', index: false, dotfiles: 'deny' }));

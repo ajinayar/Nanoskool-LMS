@@ -14,6 +14,9 @@ import { AssignmentsPanel } from './AssignmentPages';
 import { RemarkDialog, RemarkList } from './RemarkPages';
 import { ClassOutcomes } from '@/pages/shared/ReviewPages';
 import { GuidanceCard, PortfolioSection } from '@/pages/shared/JourneyPages';
+import { gradeColor, tintHex } from '@/components/gradeColors';
+import { PsychometricSection } from '@/components/PsychometricViews';
+import { CognitiveSection } from '@/components/CognitiveViews';
 import { BackButton, T, UrlTabs, localToday, useMyClasses, useTab } from './common';
 
 interface ProgressGrid {
@@ -33,27 +36,77 @@ export function TeacherClassesPage() {
           classes.length === 0 ? (
             <Empty title="No classes yet" hint="Your school admin assigns classes to you." />
           ) : (
-            <CardGrid min={240}>
-              {classes.map((c) => (
-                <Card key={c._id}>
-                  <CardActionArea component={RouterLink} to={`${T}/classes/${c._id}`} sx={{ height: '100%' }}>
-                    <CardContent>
-                      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                        <Typography variant="h6">{c.name}</Typography>
-                        {refId(c.classTeacherId) === me._id && <Chip size="small" color="secondary" label="Class teacher" />}
+            <CardGrid min={250}>
+              {[...classes]
+                .sort((a, b) => a.grade - b.grade || a.section.localeCompare(b.section))
+                .map((c) => {
+                  const col = gradeColor(c.grade);
+                  const mine = refId(c.classTeacherId) === me._id;
+                  return (
+                    <Box
+                      key={c._id}
+                      component={RouterLink}
+                      to={`${T}/classes/${c._id}`}
+                      sx={{
+                        position: 'relative',
+                        overflow: 'hidden',
+                        display: 'block',
+                        p: 2.25,
+                        borderRadius: '18px',
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        bgcolor: '#fff',
+                        border: `1px solid ${tintHex(col, 0.22)}`,
+                        boxShadow: '0 1px 2px rgba(20,20,50,0.04)',
+                        transition: 'transform .15s, box-shadow .15s',
+                        '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 10px 24px ${tintHex(col, 0.18)}` },
+                      }}
+                    >
+                      <Box aria-hidden sx={{ position: 'absolute', right: -24, top: -24, width: 100, height: 100, borderRadius: '50%', bgcolor: tintHex(col, 0.08) }} />
+                      <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 1.5, position: 'relative' }}>
+                        <Box
+                          sx={{
+                            width: 50,
+                            height: 50,
+                            borderRadius: '15px',
+                            bgcolor: col,
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            justifyContent: 'center',
+                            pt: '10px',
+                            fontWeight: 800,
+                            fontSize: 20,
+                            flexShrink: 0,
+                            boxShadow: `0 6px 14px ${tintHex(col, 0.35)}`,
+                          }}
+                        >
+                          {c.grade}
+                          <Box component="span" sx={{ fontSize: 13, ml: '1px', opacity: 0.85 }}>
+                            {c.section}
+                          </Box>
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 750, fontSize: 17 }} noWrap>
+                            {c.name}
+                          </Typography>
+                          <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', color: 'text.secondary' }}>
+                            <GroupsOutlined sx={{ fontSize: 17 }} />
+                            <Typography variant="body2">
+                              {c.studentCount ?? 0} student{c.studentCount === 1 ? '' : 's'}
+                            </Typography>
+                          </Stack>
+                        </Box>
                       </Stack>
-                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
-                        <GroupsOutlined fontSize="small" />
-                        <Typography variant="body2">{c.studentCount ?? 0} students</Typography>
+                      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', gap: 1, position: 'relative' }}>
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {mine ? '⭐ Class teacher' : `Teacher: ${refName(c.classTeacherId) || 'Not set'}`}
+                        </Typography>
+                        {c.academicYear && <Chip size="small" label={c.academicYear} sx={{ bgcolor: tintHex(col, 0.1), color: col }} />}
                       </Stack>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        Class teacher: {refName(c.classTeacherId) || 'Not set'}
-                        {c.academicYear ? ` · ${c.academicYear}` : ''}
-                      </Typography>
-                    </CardContent>
-                  </CardActionArea>
-                </Card>
-              ))}
+                    </Box>
+                  );
+                })}
             </CardGrid>
           )
         }
@@ -77,10 +130,7 @@ export function TeacherClassDetailPage() {
       {(c) => (
         <>
           <BackButton to={`${T}/classes`}>My classes</BackButton>
-          <PageHeader
-            title={c.name}
-            subtitle={`${c.students?.length ?? 0} students · Class teacher: ${c.classTeacher?.name ?? 'not set'}${refId(c.classTeacherId) === me._id ? ' (you)' : ''}`}
-          />
+          <PageHeader title={c.name} subtitle={`${c.students?.length ?? 0} students · Class teacher: ${c.classTeacher?.name ?? 'not set'}${refId(c.classTeacherId) === me._id ? ' (you)' : ''}`} />
           <UrlTabs
             value={tab}
             onChange={setTab}
@@ -285,6 +335,24 @@ export function TeacherStudentPage() {
             </Typography>
             <Box sx={{ mb: 3 }}>
               <PortfolioSection studentId={s._id} />
+            </Box>
+            <Typography variant="h6" sx={{ mt: 4, mb: 0.5 }}>
+              Personal profile (Know Yourself)
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Separate from the Genius Habits. From the student’s Know Yourself answers, the parent questionnaire and your termly observations (Learning journey → Observations).
+            </Typography>
+            <Box sx={{ mb: 3 }}>
+              <PsychometricSection studentId={s._id} />
+            </Box>
+            <Typography variant="h6" sx={{ mt: 4, mb: 0.5 }}>
+              Cognitive profile (Thinking Puzzles)
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              How the student thinks, from puzzles with right answers — a strengths shape across six areas, with no overall score. Use it to plan how you teach, never to group or rank.
+            </Typography>
+            <Box sx={{ mb: 3 }}>
+              <CognitiveSection studentId={s._id} />
             </Box>
             <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, alignItems: 'start' }}>
               <Section title="My remarks for this student">

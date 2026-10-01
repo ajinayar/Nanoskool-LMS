@@ -31,32 +31,81 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import DOMPurify from 'dompurify';
 import { useRef, useState, type ReactNode } from 'react';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
+import { usePageIcon } from './pageContext';
 import { errorMessage, uploadFile } from '@/api/client';
+import { richContentSx } from './richContent';
 import { useToast } from './Toast';
 
 dayjs.extend(relativeTime);
 
+/** Page title. In the classic portals it is a soft banner with the page's menu icon; the Clarity look keeps a plain title. */
 export function PageHeader({ title, subtitle, actions, back }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; back?: ReactNode }) {
-  return (
-    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
-      <Box>
-        {back}
-        <Typography variant="h4" component="h1">
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            {subtitle}
+  const theme = useTheme();
+  const { icon } = usePageIcon();
+  const main = theme.palette.primary.main;
+  if (main === '#17171C') {
+    return (
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+        <Box>
+          {back}
+          <Typography variant="h4" component="h1">
+            {title}
           </Typography>
+          {subtitle && (
+            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
+        {actions && (
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+            {actions}
+          </Stack>
         )}
-      </Box>
-      {actions && (
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-          {actions}
+      </Stack>
+    );
+  }
+  return (
+    <Box sx={{ mb: 3 }}>
+      {back && <Box sx={{ mb: 1 }}>{back}</Box>}
+      <Box
+        sx={{
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: '22px',
+          px: { xs: 2.5, md: 3.5 },
+          py: { xs: 2.5, md: 3 },
+          background: `linear-gradient(120deg, ${alpha(main, 0.1)} 0%, ${alpha(main, 0.05)} 55%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
+          border: `1px solid ${alpha(main, 0.12)}`,
+        }}
+      >
+        <Box aria-hidden sx={{ position: 'absolute', right: -50, top: -70, width: 200, height: 200, borderRadius: '50%', bgcolor: alpha(main, 0.07) }} />
+        <Box aria-hidden sx={{ position: 'absolute', right: 120, bottom: -90, width: 150, height: 150, borderRadius: '50%', bgcolor: alpha(theme.palette.secondary.main, 0.08) }} />
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ position: 'relative', alignItems: { md: 'center' }, justifyContent: 'space-between' }}>
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'center', minWidth: 0 }}>
+            {icon && (
+              <Box sx={{ width: 52, height: 52, borderRadius: '16px', flexShrink: 0, display: 'grid', placeItems: 'center', color: '#fff', background: `linear-gradient(135deg, ${main}, ${alpha(main, 0.7)})`, boxShadow: `0 8px 18px ${alpha(main, 0.3)}`, '& svg': { fontSize: 26 } }}>{icon}</Box>
+            )}
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="h4" component="h1" sx={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
+                {title}
+              </Typography>
+              {subtitle && (
+                <Typography color="text.secondary" sx={{ mt: 0.25, fontWeight: 500 }}>
+                  {subtitle}
+                </Typography>
+              )}
+            </Box>
+          </Stack>
+          {actions && (
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, flexShrink: 0 }}>
+              {actions}
+            </Stack>
+          )}
         </Stack>
-      )}
-    </Stack>
+      </Box>
+    </Box>
   );
 }
 
@@ -80,27 +129,20 @@ export function StatCard({ label, value, icon, hint, color = 'primary.main' }: {
       </Box>
     );
   }
+  // Classic look: colourful tiles, each stat in its own colour
+  const col = color === 'primary.main' ? STAT_COLORS[[...label].reduce((a, c) => a + c.charCodeAt(0), 0) % STAT_COLORS.length] : color.includes('.') ? (theme.palette[color.split('.')[0] as 'primary']?.main ?? theme.palette.primary.main) : color;
   return (
-    <Card sx={{ height: '100%' }}>
-      <CardContent>
-        <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-          {icon && <Avatar sx={{ bgcolor: 'rgba(63,61,191,0.08)', color, width: 44, height: 44 }}>{icon}</Avatar>}
-          <Box>
-            <Typography variant="body2" color="text.secondary">
-              {label}
-            </Typography>
-            <Typography variant="h5">{value ?? '—'}</Typography>
-            {hint && (
-              <Typography variant="caption" color="text.secondary">
-                {hint}
-              </Typography>
-            )}
-          </Box>
-        </Stack>
-      </CardContent>
-    </Card>
+    <Box sx={{ position: 'relative', overflow: 'hidden', height: '100%', p: 2.25, borderRadius: '18px', bgcolor: '#fff', border: '1px solid #E6E7F1', boxShadow: '0 1px 2px rgba(20,20,50,0.04)' }}>
+      <Box aria-hidden sx={{ position: 'absolute', right: -18, top: -18, width: 90, height: 90, borderRadius: '50%', bgcolor: alpha(col, 0.08) }} />
+      {icon && <Box sx={{ position: 'relative', width: 42, height: 42, borderRadius: '12px', display: 'grid', placeItems: 'center', bgcolor: alpha(col, 0.12), color: col, mb: 1.5 }}>{icon}</Box>}
+      <Typography sx={{ position: 'relative', fontSize: 30, fontWeight: 800, lineHeight: 1, letterSpacing: '-0.02em' }}>{value ?? '—'}</Typography>
+      <Typography sx={{ position: 'relative', fontWeight: 650, mt: 0.5 }}>{label}</Typography>
+      {hint && <Typography sx={{ position: 'relative', fontSize: 13, color: 'text.secondary' }}>{hint}</Typography>}
+    </Box>
   );
 }
+
+const STAT_COLORS = ['#3F3DBF', '#0AA5B5', '#1E9A55', '#F28B30', '#C2417B', '#6C4CF1'];
 
 /** Responsive grid of cards without depending on the Grid API. */
 export function CardGrid({ children, min = 220 }: { children: ReactNode; min?: number }) {
@@ -112,7 +154,9 @@ export function Section({ title, action, children }: { title: ReactNode; action?
     <Card sx={{ mb: 3 }}>
       <CardContent>
         <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-          <Typography variant="h6">{title}</Typography>
+          <Typography component="h2" sx={{ fontWeight: 750, fontSize: 18 }}>
+            {title}
+          </Typography>
           {action}
         </Stack>
         {children}
@@ -288,7 +332,7 @@ export function RichText({ html, sx }: { html?: string; sx?: object }) {
   return (
     <Box
       className="rich-text"
-      sx={{ '& img': { maxWidth: '100%' }, '& iframe': { maxWidth: '100%' }, '& h2': { fontSize: '1.3rem' }, '& h3': { fontSize: '1.1rem' }, lineHeight: 1.7, ...sx }}
+      sx={{ ...richContentSx, ...sx }}
       dangerouslySetInnerHTML={{ __html: clean }}
     />
   );

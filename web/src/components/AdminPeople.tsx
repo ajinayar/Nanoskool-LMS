@@ -5,7 +5,12 @@
 import {
   Autocomplete,
   Box,
+  Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   MenuItem,
   Stack,
   TextField,
@@ -326,11 +331,11 @@ export function useUserActions(opts: { roles?: Role[]; schoolId?: string } = {})
       setStatusFor(null);
     },
   });
-  const reset = useSend<{ id: string }, { emailed: boolean; tempPassword?: string }>('post', (b) => `/users/${b.id}/reset-password`, {
+  const reset = useSend<{ id: string; temporary?: boolean }, { emailed: boolean; tempPassword?: string }>('post', (b) => `/users/${b.id}/reset-password`, {
     onSuccess: (res) => {
       const u = resetFor;
       setResetFor(null);
-      if (res.tempPassword && u) setCreds([{ name: u.name, username: u.username, password: res.tempPassword }]);
+      if (res.tempPassword && u) setCreds([{ name: u.name, username: u.username || u.email, password: res.tempPassword }]);
       else toast.success(`A password reset link was emailed to ${u?.email ?? 'the user'}`);
     },
   });
@@ -356,15 +361,32 @@ export function useUserActions(opts: { roles?: Role[]; schoolId?: string } = {})
         onClose={() => setStatusFor(null)}
         onConfirm={() => statusFor && status.mutate({ id: statusFor._id, status: statusFor.status === 'suspended' ? 'active' : 'suspended' })}
       />
-      <ConfirmDialog
-        open={!!resetFor}
-        title={`Reset password for ${resetFor?.name}?`}
-        message={resetFor?.email ? `We will email a reset link to ${resetFor.email}. Their current password keeps working until they set a new one.` : 'This account has no email, so a new one-time password will be created and shown to you once. Their current password stops working right away.'}
-        confirmLabel="Reset password"
-        loading={reset.isPending}
-        onClose={() => setResetFor(null)}
-        onConfirm={() => resetFor && reset.mutate({ id: resetFor._id })}
-      />
+      <Dialog open={!!resetFor} onClose={() => !reset.isPending && setResetFor(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Reset password for {resetFor?.name}?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            {resetFor?.email
+              ? `Email a reset link to ${resetFor.email} (their current password keeps working until they set a new one), or create a temporary password to give them yourself — useful while email is not set up.`
+              : 'This account has no email, so a new temporary password will be created and shown to you once.'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+            A temporary password replaces the current one straight away, and they must choose their own at first sign-in.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setResetFor(null)} disabled={reset.isPending}>
+            Cancel
+          </Button>
+          <Button variant={resetFor?.email ? 'outlined' : 'contained'} disabled={reset.isPending} onClick={() => resetFor && reset.mutate({ id: resetFor._id, temporary: true })}>
+            Create temporary password
+          </Button>
+          {resetFor?.email && (
+            <Button variant="contained" disabled={reset.isPending} onClick={() => resetFor && reset.mutate({ id: resetFor._id })}>
+              Email reset link
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
       {creds && <CredentialsDialog open title="New one-time password" credentials={creds} onClose={() => setCreds(null)} />}
     </>
   );

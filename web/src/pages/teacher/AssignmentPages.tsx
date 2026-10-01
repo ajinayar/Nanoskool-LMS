@@ -1,4 +1,12 @@
-import { Alert, Box, Button, Chip, IconButton, Link, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Chip, Link, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
+import MenuBookOutlined from '@mui/icons-material/MenuBookOutlined';
+import ConstructionOutlined from '@mui/icons-material/ConstructionOutlined';
+import ExtensionOutlined from '@mui/icons-material/ExtensionOutlined';
+import RateReviewOutlined from '@mui/icons-material/RateReviewOutlined';
+import PendingActionsOutlined from '@mui/icons-material/PendingActionsOutlined';
+import EventBusyOutlined from '@mui/icons-material/EventBusyOutlined';
+import EditNoteOutlined from '@mui/icons-material/EditNoteOutlined';
+import { IconTile, Meter, MiniStat, MiniStats, RowMenu, Segmented, StatusDot, Toolbar, WhenCell, type Tone } from '@/components/ListKit';
 import Add from '@mui/icons-material/Add';
 import EditOutlined from '@mui/icons-material/EditOutlined';
 import DeleteOutlined from '@mui/icons-material/DeleteOutlined';
@@ -7,29 +15,13 @@ import LinkOutlined from '@mui/icons-material/LinkOutlined';
 import GradingOutlined from '@mui/icons-material/GradingOutlined';
 import Close from '@mui/icons-material/Close';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { refId, refName, type Assignment, type ClassCourse, type Submission, type User } from '@/api/types';
 import { useGet, useSend } from '@/lib/hooks';
 import { RichEditor } from '@/components/RichEditor';
-import {
-  CardGrid,
-  ConfirmDialog,
-  DataTable,
-  DueDate,
-  Empty,
-  FormDialog,
-  PageHeader,
-  QueryState,
-  RichText,
-  Section,
-  StatCard,
-  StatusChip,
-  UploadButton,
-  UserCell,
-  fmtDateTime,
-} from '@/components/ui';
-import { BackButton, ClassSelect, FilterBar, KIND_LABEL, T, WideTable, toLocalInput, SHOW_EMPTY } from './common';
+import { CardGrid, ConfirmDialog, DataTable, DueDate, Empty, FormDialog, PageHeader, QueryState, RichText, Section, StatCard, StatusChip, UploadButton, UserCell, fmtDateTime } from '@/components/ui';
+import { BackButton, ClassSelect, KIND_LABEL, T, WideTable, toLocalInput, SHOW_EMPTY } from './common';
 
 /** Uploaded files get random names on the server, so label them by type. */
 export const fileName = (url: string) => {
@@ -122,9 +114,7 @@ export function AssignmentDialog({ onClose, assignment, defaultClassId }: { onCl
       </Box>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <UploadButton folder="assignments" label={attachmentUrl ? 'Replace attachment' : 'Attach a file'} onUploaded={(url) => setAttachmentUrl(url)} />
-        {attachmentUrl && (
-          <Chip icon={<AttachFileOutlined />} label={fileName(attachmentUrl)} onDelete={() => setAttachmentUrl('')} deleteIcon={<Close />} component="a" href={attachmentUrl} target="_blank" clickable />
-        )}
+        {attachmentUrl && <Chip icon={<AttachFileOutlined />} label={fileName(attachmentUrl)} onDelete={() => setAttachmentUrl('')} deleteIcon={<Close />} component="a" href={attachmentUrl} target="_blank" clickable />}
       </Stack>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <TextField label="Due" type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} helperText="Leave empty for no due date" />
@@ -149,62 +139,73 @@ export function AssignmentDialog({ onClose, assignment, defaultClassId }: { onCl
 
 /* ------------------------------------------------------------------ List */
 
+const KIND_LOOK: Record<Assignment['kind'], { tone: Tone; icon: ReactNode }> = {
+  homework: { tone: 'indigo', icon: <MenuBookOutlined /> },
+  project: { tone: 'pink', icon: <ConstructionOutlined /> },
+  activity: { tone: 'teal', icon: <ExtensionOutlined /> },
+};
+
 export function AssignmentTable({ rows, onEdit, onDelete }: { rows: Assignment[]; onEdit: (a: Assignment) => void; onDelete: (a: Assignment) => void }) {
   const navigate = useNavigate();
   return (
-    <WideTable min={760}>
-    <DataTable
-      rows={rows}
-      onRowClick={(a) => navigate(`${T}/assignments/${a._id}`)}
-      empty={<Empty title="No assignments yet" hint="Create one to share homework, projects or activities with a class." />}
-      columns={[
-        {
-          key: 'title',
-          label: 'Assignment',
-          render: (a) => (
-            <Box>
-              <Typography sx={{ fontWeight: 600 }}>{a.title}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {KIND_LABEL[a.kind]}
-                {refName(a.courseId) ? ` · ${refName(a.courseId)}` : ''}
-              </Typography>
-            </Box>
-          ),
-        },
-        { key: 'class', label: 'Class', render: (a) => refName(a.classId) },
-        { key: 'due', label: 'Due', render: (a) => <DueDate date={a.dueDate} /> },
-        { key: 'status', label: 'Status', render: (a) => <StatusChip status={a.status} /> },
-        {
-          key: 'subs',
-          label: 'Submitted / graded',
-          render: (a) => (
-            <Stack direction="row" spacing={0.5}>
-              <Chip size="small" label={`${a.submissionCount ?? 0} in`} />
-              <Chip size="small" variant="outlined" color={(a.gradedCount ?? 0) < (a.submissionCount ?? 0) ? 'warning' : 'success'} label={`${a.gradedCount ?? 0} graded`} />
-            </Stack>
-          ),
-        },
-        {
-          key: 'actions',
-          label: '',
-          align: 'right',
-          render: (a) => (
-            <Stack direction="row" sx={{ justifyContent: 'flex-end' }} onClick={(e) => e.stopPropagation()}>
-              <Tooltip title="Edit">
-                <IconButton size="small" onClick={() => onEdit(a)} aria-label="Edit assignment">
-                  <EditOutlined fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Delete">
-                <IconButton size="small" onClick={() => onDelete(a)} aria-label="Delete assignment">
-                  <DeleteOutlined fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          ),
-        },
-      ]}
-    />
+    <WideTable min={820}>
+      <DataTable
+        rows={rows}
+        onRowClick={(a) => navigate(`${T}/assignments/${a._id}`)}
+        empty={<Empty title="No assignments here" hint="Create one to share homework, projects or activities with a class." />}
+        columns={[
+          {
+            key: 'title',
+            label: 'Assignment',
+            render: (a) => (
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', minWidth: 0 }}>
+                <IconTile tone={KIND_LOOK[a.kind].tone}>{KIND_LOOK[a.kind].icon}</IconTile>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 700 }}>{a.title}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {KIND_LABEL[a.kind]}
+                    {refName(a.courseId) ? ` · ${refName(a.courseId)}` : ''}
+                  </Typography>
+                </Box>
+              </Stack>
+            ),
+          },
+          { key: 'class', label: 'Class', render: (a) => <Chip size="small" variant="outlined" label={refName(a.classId)} sx={{ fontWeight: 650 }} /> },
+          { key: 'due', label: 'Due', render: (a) => <WhenCell date={a.dueDate} empty="No due date" pastWord="Was due" /> },
+          {
+            key: 'subs',
+            label: 'Marking',
+            render: (a) => {
+              const inCount = a.submissionCount ?? 0;
+              const graded = a.gradedCount ?? 0;
+              const left = inCount - graded;
+              if (!inCount)
+                return (
+                  <Typography variant="body2" color="text.secondary">
+                    {a.status === 'draft' ? 'Not shared yet' : 'Nothing handed in yet'}
+                  </Typography>
+                );
+              return <Meter value={graded} max={inCount} tone={left ? 'orange' : 'green'} label={`${inCount} handed in`} sub={left ? `${left} to mark` : 'All marked'} />;
+            },
+          },
+          { key: 'status', label: 'Status', render: (a) => <StatusDot status={a.status} /> },
+          {
+            key: 'actions',
+            label: '',
+            align: 'right',
+            render: (a) => (
+              <RowMenu
+                label={`Actions for ${a.title}`}
+                actions={[
+                  { label: 'Open and mark', icon: <GradingOutlined />, onClick: () => navigate(`${T}/assignments/${a._id}`) },
+                  { label: 'Edit', icon: <EditOutlined />, onClick: () => onEdit(a) },
+                  { label: 'Delete', icon: <DeleteOutlined />, onClick: () => onDelete(a), danger: true },
+                ]}
+              />
+            ),
+          },
+        ]}
+      />
     </WideTable>
   );
 }
@@ -289,28 +290,56 @@ export function TeacherAssignmentsPage() {
           </Button>
         }
       />
-      <Section title="All assignments">
-        <FilterBar>
-            <ClassSelect
-              value={classId}
-              allowAll="All classes"
-              onChange={(id) => {
-                const next = new URLSearchParams(params);
-                if (id) next.set('classId', id);
-                else next.delete('classId');
-                setParams(next, { replace: true });
-              }}
-              sx={{ minWidth: 160 }}
-            />
-            <TextField select label="Status" value={status} onChange={(e) => setStatus(e.target.value)} sx={{ minWidth: 130 }} slotProps={SHOW_EMPTY}>
-              <MenuItem value="">Any status</MenuItem>
-              <MenuItem value="draft">Draft</MenuItem>
-              <MenuItem value="published">Published</MenuItem>
-              <MenuItem value="closed">Closed</MenuItem>
-            </TextField>
-          </FilterBar>
-        <QueryState q={q}>{(rows) => <AssignmentTable rows={rows.filter((a) => !status || a.status === status)} onEdit={setEdit} onDelete={setDel} />}</QueryState>
-      </Section>
+      <QueryState q={q}>
+        {(rows) => {
+          const now = dayjs();
+          const toMark = rows.reduce((n, a) => n + Math.max(0, (a.submissionCount ?? 0) - (a.gradedCount ?? 0)), 0);
+          const live = rows.filter((a) => a.status === 'published');
+          const thisWeek = live.filter((a) => a.dueDate && dayjs(a.dueDate).isAfter(now) && dayjs(a.dueDate).diff(now, 'day') < 7).length;
+          const pastDue = live.filter((a) => a.dueDate && dayjs(a.dueDate).isBefore(now)).length;
+          const count = (s: string) => rows.filter((a) => a.status === s).length;
+          const shown = rows.filter((a) => (status === 'to_mark' ? (a.submissionCount ?? 0) > (a.gradedCount ?? 0) : !status || a.status === status));
+          return (
+            <>
+              <MiniStats>
+                <MiniStat tone="orange" icon={<RateReviewOutlined />} value={toMark} label="Waiting to be marked" active={status === 'to_mark'} onClick={() => setStatus(status === 'to_mark' ? '' : 'to_mark')} />
+                <MiniStat tone="teal" icon={<PendingActionsOutlined />} value={thisWeek} label="Due this week" />
+                <MiniStat tone="red" icon={<EventBusyOutlined />} value={pastDue} label="Past the due date" hint="Still open for late work" />
+                <MiniStat tone="grey" icon={<EditNoteOutlined />} value={count('draft')} label="Drafts" active={status === 'draft'} onClick={() => setStatus(status === 'draft' ? '' : 'draft')} />
+              </MiniStats>
+              <Card>
+                <CardContent>
+                  <Toolbar right={`${shown.length} of ${rows.length} shown`}>
+                    <ClassSelect
+                      value={classId}
+                      allowAll="All classes"
+                      onChange={(id) => {
+                        const next = new URLSearchParams(params);
+                        if (id) next.set('classId', id);
+                        else next.delete('classId');
+                        setParams(next, { replace: true });
+                      }}
+                    />
+                    <Segmented
+                      label="Status"
+                      value={status}
+                      onChange={setStatus}
+                      options={[
+                        { value: '', label: 'All', count: rows.length },
+                        { value: 'to_mark', label: 'To mark', count: rows.filter((a) => (a.submissionCount ?? 0) > (a.gradedCount ?? 0)).length },
+                        { value: 'published', label: 'Published', count: count('published') },
+                        { value: 'draft', label: 'Drafts', count: count('draft') },
+                        { value: 'closed', label: 'Closed', count: count('closed') },
+                      ]}
+                    />
+                  </Toolbar>
+                  <AssignmentTable rows={shown} onEdit={setEdit} onDelete={setDel} />
+                </CardContent>
+              </Card>
+            </>
+          );
+        }}
+      </QueryState>
       {edit && <AssignmentDialog onClose={() => setEdit(null)} assignment={edit === 'new' ? undefined : edit} defaultClassId={classId || undefined} />}
       <DeleteAssignmentDialog assignment={del} onClose={() => setDel(null)} />
     </>
@@ -349,17 +378,7 @@ function GradeDialog({ row, maxPoints, onClose }: { row: RosterRow; maxPoints: n
     >
       <SubmissionBody sub={sub} />
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        <TextField
-          label={`Points (out of ${maxPoints})`}
-          type="number"
-          value={points}
-          onChange={(e) => setPoints(e.target.value)}
-          required
-          autoFocus
-          slotProps={{ htmlInput: { step: 'any' } }}
-          error={!!err}
-          helperText={err || ' '}
-        />
+        <TextField label={`Points (out of ${maxPoints})`} type="number" value={points} onChange={(e) => setPoints(e.target.value)} required autoFocus slotProps={{ htmlInput: { step: 'any' } }} error={!!err} helperText={err || ' '} />
         <TextField select label="Outcome" value={status} onChange={(e) => setStatus(e.target.value as 'graded' | 'returned')} helperText={status === 'returned' ? 'The student can edit and resubmit' : 'Final grade'}>
           <MenuItem value="graded">Graded</MenuItem>
           <MenuItem value="returned">Returned for changes</MenuItem>
@@ -450,86 +469,86 @@ export function TeacherAssignmentDetailPage() {
                 }
               >
                 <WideTable min={760}>
-                <DataTable
-                  rows={rows}
-                  empty={<Empty title={roster.length ? 'No students match this filter' : 'No students in this class'} />}
-                  columns={[
-                    { key: 'student', label: 'Student', render: (r) => <UserCell name={r.student.name} sub={r.student.rollNo ? `Roll no. ${r.student.rollNo}` : undefined} /> },
-                    {
-                      key: 'work',
-                      label: 'Work',
-                      render: (r) =>
-                        r.submission ? (
-                          <Stack spacing={0.5} sx={{ maxWidth: 280 }}>
-                            {r.submission.text && (
-                              <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                                {r.submission.text}
-                              </Typography>
-                            )}
-                            <Stack direction="row" spacing={1}>
-                              {r.submission.fileUrl && (
-                                <Link href={r.submission.fileUrl} target="_blank" rel="noopener" variant="body2" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                                  <AttachFileOutlined sx={{ fontSize: 16 }} /> File
-                                </Link>
+                  <DataTable
+                    rows={rows}
+                    empty={<Empty title={roster.length ? 'No students match this filter' : 'No students in this class'} />}
+                    columns={[
+                      { key: 'student', label: 'Student', render: (r) => <UserCell name={r.student.name} sub={r.student.rollNo ? `Roll no. ${r.student.rollNo}` : undefined} /> },
+                      {
+                        key: 'work',
+                        label: 'Work',
+                        render: (r) =>
+                          r.submission ? (
+                            <Stack spacing={0.5} sx={{ maxWidth: 280 }}>
+                              {r.submission.text && (
+                                <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                                  {r.submission.text}
+                                </Typography>
                               )}
-                              {r.submission.linkUrl && (
-                                <Link href={r.submission.linkUrl} target="_blank" rel="noopener" variant="body2" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
-                                  <LinkOutlined sx={{ fontSize: 16 }} /> Link
-                                </Link>
+                              <Stack direction="row" spacing={1}>
+                                {r.submission.fileUrl && (
+                                  <Link href={r.submission.fileUrl} target="_blank" rel="noopener" variant="body2" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                                    <AttachFileOutlined sx={{ fontSize: 16 }} /> File
+                                  </Link>
+                                )}
+                                {r.submission.linkUrl && (
+                                  <Link href={r.submission.linkUrl} target="_blank" rel="noopener" variant="body2" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                                    <LinkOutlined sx={{ fontSize: 16 }} /> Link
+                                  </Link>
+                                )}
+                              </Stack>
+                            </Stack>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">
+                              Not submitted
+                            </Typography>
+                          ),
+                      },
+                      {
+                        key: 'when',
+                        label: 'Submitted',
+                        render: (r) =>
+                          r.submission ? (
+                            <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+                              <Typography variant="body2">{fmtDateTime(r.submission.submittedAt)}</Typography>
+                              {isLate(r.submission, a.dueDate) && <StatusChip status="late" />}
+                            </Stack>
+                          ) : a.dueDate && dayjs(a.dueDate).isBefore(dayjs()) ? (
+                            <StatusChip status="overdue" label="Missing" />
+                          ) : (
+                            '—'
+                          ),
+                      },
+                      {
+                        key: 'grade',
+                        label: 'Grade',
+                        render: (r) =>
+                          r.submission ? (
+                            <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+                              <StatusChip status={r.submission.status} label={r.submission.status === 'submitted' ? 'To grade' : undefined} />
+                              {r.submission.points != null && r.submission.status !== 'submitted' && (
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                  {r.submission.points}/{a.maxPoints}
+                                </Typography>
                               )}
                             </Stack>
-                          </Stack>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            Not submitted
-                          </Typography>
-                        ),
-                    },
-                    {
-                      key: 'when',
-                      label: 'Submitted',
-                      render: (r) =>
-                        r.submission ? (
-                          <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
-                            <Typography variant="body2">{fmtDateTime(r.submission.submittedAt)}</Typography>
-                            {isLate(r.submission, a.dueDate) && <StatusChip status="late" />}
-                          </Stack>
-                        ) : a.dueDate && dayjs(a.dueDate).isBefore(dayjs()) ? (
-                          <StatusChip status="overdue" label="Missing" />
-                        ) : (
-                          '—'
-                        ),
-                    },
-                    {
-                      key: 'grade',
-                      label: 'Grade',
-                      render: (r) =>
-                        r.submission ? (
-                          <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
-                            <StatusChip status={r.submission.status} label={r.submission.status === 'submitted' ? 'To grade' : undefined} />
-                            {r.submission.points != null && r.submission.status !== 'submitted' && (
-                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                {r.submission.points}/{a.maxPoints}
-                              </Typography>
-                            )}
-                          </Stack>
-                        ) : (
-                          '—'
-                        ),
-                    },
-                    {
-                      key: 'act',
-                      label: '',
-                      align: 'right',
-                      render: (r) =>
-                        r.submission && (
-                          <Button size="small" variant={r.submission.status === 'submitted' ? 'contained' : 'outlined'} startIcon={<GradingOutlined />} onClick={() => setGrading(r)}>
-                            {r.submission.status === 'submitted' ? 'Grade' : 'Regrade'}
-                          </Button>
-                        ),
-                    },
-                  ]}
-                />
+                          ) : (
+                            '—'
+                          ),
+                      },
+                      {
+                        key: 'act',
+                        label: '',
+                        align: 'right',
+                        render: (r) =>
+                          r.submission && (
+                            <Button size="small" variant={r.submission.status === 'submitted' ? 'contained' : 'outlined'} startIcon={<GradingOutlined />} onClick={() => setGrading(r)}>
+                              {r.submission.status === 'submitted' ? 'Grade' : 'Regrade'}
+                            </Button>
+                          ),
+                      },
+                    ]}
+                  />
                 </WideTable>
               </Section>
             </Box>
@@ -542,4 +561,3 @@ export function TeacherAssignmentDetailPage() {
     </QueryState>
   );
 }
-

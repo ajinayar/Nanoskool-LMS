@@ -1,5 +1,6 @@
+import { sharedContext } from '@/lib/sharedContext';
 import { Alert, Snackbar } from '@mui/material';
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 type Kind = 'success' | 'error' | 'info' | 'warning';
 interface ToastApi {
@@ -7,7 +8,7 @@ interface ToastApi {
   error: (m: string) => void;
   info: (m: string) => void;
 }
-const Ctx = createContext<ToastApi>({ success: () => {}, error: () => {}, info: () => {} });
+const Ctx = sharedContext<ToastApi>('toast', { success: () => {}, error: () => {}, info: () => {} });
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [msg, setMsg] = useState<{ text: string; kind: Kind; key: number } | null>(null);

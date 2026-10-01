@@ -28,21 +28,7 @@ export function BackButton({ to, children }: { to: string; children: ReactNode }
   );
 }
 
-export function ClassSelect({
-  value,
-  onChange,
-  label = 'Class',
-  allowAll,
-  required,
-  sx,
-}: {
-  value: string;
-  onChange: (id: string) => void;
-  label?: string;
-  allowAll?: string;
-  required?: boolean;
-  sx?: object;
-}) {
+export function ClassSelect({ value, onChange, label = 'Class', allowAll, required, sx }: { value: string; onChange: (id: string) => void; label?: string; allowAll?: string; required?: boolean; sx?: object }) {
   const classes = useMyClasses();
   return (
     <TextField select label={label} value={classes.data ? value : ''} onChange={(e) => onChange(e.target.value)} required={required} sx={sx} disabled={classes.isLoading} slotProps={allowAll ? SHOW_EMPTY : undefined}>
@@ -83,7 +69,11 @@ export const KIND_LABEL: Record<string, string> = { homework: 'Homework', projec
 
 /** Row of filter controls that wraps on small screens. */
 export function FilterBar({ children }: { children: ReactNode }) {
-  return <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1.5, mb: 2, '& > *': { minWidth: 150, flex: { xs: '1 1 150px', sm: '0 0 auto' } } }}>{children}</Stack>;
+  return (
+    <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1.5, mb: 2.5, '& > *, & > .MuiFormControl-root': { minWidth: 150, width: { xs: '100%', sm: 220 }, flex: { xs: '1 1 150px', sm: '0 0 auto' } } }}>
+      {children}
+    </Stack>
+  );
 }
 
 /** Gives a table a minimum width so it scrolls sideways on phones instead of squashing columns. */

@@ -1,4 +1,4 @@
-/** Teacher / school / admin views: the evidence review queue, open answers from the skills mission, and the class outcome heatmap. */
+/** Teacher / school / admin views: the evidence review queue, open answers from the Genius Quest, and the class outcome heatmap. */
 import { Avatar, Box, Button, Card, CardContent, Chip, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { ACTIVITY_LABEL, type Evidence, type OutcomeBand } from '@/api/journey';
 import { useGet, useSend } from '@/lib/hooks';
 import { Empty, PageHeader, QueryState, fromNow } from '@/components/ui';
 import { FormError, TabBar, useTab } from '@/components/AdminCommon';
+import { QuestMedia } from '@/components/QuestMedia';
 import { BandChip, EvidenceMediaView, bandColor } from '@/components/JourneyViews';
 
 const RUBRIC = ['Beginning', 'Developing', 'Secure', 'Excellent'];
@@ -18,13 +19,14 @@ interface OpenAnswer {
   submittedAt: string;
   itemId: string;
   prompt: string;
+  mediaUrl?: string;
   type: string;
   rubric: string[];
   text?: string;
   fileUrl?: string;
 }
 
-/** Tabs: uploads waiting for a check, and open answers from the skills mission. */
+/** Tabs: uploads waiting for a check, and open answers from the Genius Quest. */
 export function ReviewQueue() {
   const [tab, setTab] = useTab(['evidence', 'answers', 'done'] as const, 'evidence');
   const pending = useGet<Evidence[]>('/evidence', { status: 'pending' });
@@ -36,7 +38,7 @@ export function ReviewQueue() {
         onChange={setTab}
         tabs={[
           { value: 'evidence', label: `Projects and uploads${pending.data ? ` (${pending.data.length})` : ''}` },
-          { value: 'answers', label: `Skills mission answers${answers.data ? ` (${answers.data.length})` : ''}` },
+          { value: 'answers', label: `Genius Quest answers${answers.data ? ` (${answers.data.length})` : ''}` },
           { value: 'done', label: 'Recently checked' },
         ]}
       />
@@ -192,7 +194,7 @@ function AnswerList({ q }: { q: ReturnType<typeof useGet<OpenAnswer[]>> }) {
     <QueryState q={q}>
       {(rows) =>
         rows.length === 0 ? (
-          <Empty title="No answers waiting" hint="Written and photo answers from the skills mission appear here." />
+          <Empty title="No answers waiting" hint="Written and photo answers from the Genius Quest appear here." />
         ) : (
           <Stack spacing={1.5}>
             {rows.map((a) => (
@@ -215,6 +217,11 @@ function AnswerRow({ a }: { a: OpenAnswer }) {
           {refName(a.student)} · {refName(a.class)} · {fromNow(a.submittedAt)}
         </Typography>
         <Typography sx={{ fontWeight: 650, my: 0.5 }}>{a.prompt}</Typography>
+        {a.mediaUrl && (
+          <Box sx={{ maxWidth: 360, mb: 1 }}>
+            <QuestMedia url={a.mediaUrl} radius={10} maxHeight={200} />
+          </Box>
+        )}
         {a.text && <Typography sx={{ whiteSpace: 'pre-wrap', p: 1.25, bgcolor: '#FAFAFB', borderRadius: 1.5 }}>{a.text}</Typography>}
         {a.fileUrl && (/\.(png|jpe?g|webp|gif)$/i.test(a.fileUrl) ? <Box component="img" src={a.fileUrl} alt="Answer" sx={{ maxWidth: '100%', maxHeight: 260, borderRadius: 1.5, mt: 1 }} /> : <Button href={a.fileUrl} target="_blank">Open file</Button>)}
       </Box>
@@ -313,7 +320,7 @@ export function ClassOutcomes({ classId, studentBase }: { classId: string; stude
                       </Typography>
                       <Tooltip title={g.data.notAssessed.join(', ')}>
                         <Typography variant="body2">
-                          <b>{g.data.notAssessed.length}</b> students have not taken the skills mission
+                          <b>{g.data.notAssessed.length}</b> students have not taken the Genius Quest
                         </Typography>
                       </Tooltip>
                       <Tooltip title={g.data.noConsent.join(', ')}>

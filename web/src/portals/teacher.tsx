@@ -1,4 +1,6 @@
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
+import DoorFrontOutlined from '@mui/icons-material/DoorFrontOutlined';
+import { TeacherDoorsPage } from '@/pages/shared/DoorPages';
 import ClassOutlined from '@mui/icons-material/ClassOutlined';
 import AssignmentOutlined from '@mui/icons-material/AssignmentOutlined';
 import QuizOutlined from '@mui/icons-material/QuizOutlined';
@@ -17,6 +19,9 @@ import { TeacherRemarksPage } from '@/pages/teacher/RemarkPages';
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined';
 import InsightsOutlined from '@mui/icons-material/InsightsOutlined';
 import { ClassOutcomesPage, ReviewPage } from '@/pages/shared/ReviewPages';
+import { ConversationsPage, TeacherObservationsPage } from '@/pages/teacher/ObservationPages';
+import ForumOutlined from '@mui/icons-material/ForumOutlined';
+import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
 import { sharedRoutes } from './shared';
 import type { Portal } from './types';
 
@@ -33,7 +38,10 @@ export const portal: Portal = {
     { label: 'Remarks', path: 'remarks', icon: <RateReviewOutlined />, group: 'Teaching' },
     { label: 'Evidence to check', path: 'evidence', icon: <FactCheckOutlined />, group: 'Learning journey' },
     { label: 'Learning outcomes', path: 'outcomes', icon: <InsightsOutlined />, group: 'Learning journey' },
+    { label: 'Observations', path: 'observations', icon: <VisibilityOutlined />, group: 'Learning journey' },
+    { label: 'Conversations', path: 'conversations', icon: <ForumOutlined />, group: 'Learning journey' },
     { label: 'Courses', path: 'courses', icon: <MenuBookOutlined />, group: 'Learning' },
+    { label: 'My Genius Doors', path: 'doors', icon: <DoorFrontOutlined />, group: 'Learning' },
     { label: 'NanoBot', path: 'nanobot', icon: <SmartToyOutlined />, group: 'Learning' },
     { label: 'Announcements', path: 'announcements', icon: <CampaignOutlined />, group: 'School' },
     { label: 'Events', path: 'events', icon: <EventOutlined />, group: 'School' },
@@ -51,8 +59,11 @@ export const portal: Portal = {
     { path: 'quizzes/:id/edit', element: <TeacherQuizEditPage /> },
     { path: 'attendance', element: <TeacherAttendancePage /> },
     { path: 'remarks', element: <TeacherRemarksPage /> },
+    { path: 'doors', element: <TeacherDoorsPage /> },
     { path: 'evidence', element: <ReviewPage /> },
     { path: 'outcomes', element: <ClassOutcomesPage studentBase="/teacher/students/" /> },
+    { path: 'observations', element: <TeacherObservationsPage /> },
+    { path: 'conversations', element: <ConversationsPage /> },
     ...sharedRoutes({ nanobot: true }),
   ],
 };

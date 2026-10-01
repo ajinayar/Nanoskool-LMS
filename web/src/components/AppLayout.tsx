@@ -1,23 +1,4 @@
-import {
-  AppBar,
-  Avatar,
-  Box,
-  Chip,
-  Divider,
-  Drawer,
-  IconButton,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  ListSubheader,
-  Menu,
-  MenuItem,
-  Toolbar,
-  Typography,
-  useMediaQuery,
-  useTheme,
-} from '@mui/material';
+import { AppBar, Avatar, Box, Chip, Divider, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText, ListSubheader, Menu, MenuItem, Toolbar, Typography, useMediaQuery, useTheme } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import Logout from '@mui/icons-material/Logout';
 import PersonOutline from '@mui/icons-material/PersonOutlined';
@@ -28,18 +9,13 @@ import { useAuth, useMe } from '@/auth/AuthContext';
 import type { Portal } from '@/portals/types';
 import { ClarityLayout } from './ClarityLayout';
 import { StudentShell } from '@/student/StudentShell';
+import { PageIconContext } from './pageContext';
 
 const WIDTH = 248;
 
-export function Logo({ small }: { small?: boolean }) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Box sx={{ width: small ? 28 : 34, height: small ? 28 : 34, borderRadius: 2, bgcolor: 'secondary.main', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: small ? 15 : 18 }}>N</Box>
-      <Typography sx={{ fontWeight: 800, fontSize: small ? 17 : 20, letterSpacing: -0.3 }}>
-        Nano<Box component="span" sx={{ color: 'secondary.main' }}>skool</Box>
-      </Typography>
-    </Box>
-  );
+/** The Nanoskool logo (web/public/brand). `white` for dark backgrounds. */
+export function Logo({ small, white }: { small?: boolean; white?: boolean }) {
+  return <Box component="img" src={white ? '/brand/nanoskool-logo-white.png' : '/brand/nanoskool-logo.png'} alt="Nanoskool" sx={{ height: small ? 30 : 38, width: 'auto', display: 'block' }} />;
 }
 
 export function AppLayout({ portal }: { portal: Portal }) {
@@ -62,6 +38,7 @@ function ClassicLayout({ portal }: { portal: Portal }) {
   const org = me.school?.name ?? me.partner?.name ?? (me.role === 'super_admin' ? 'Nanoskool HQ' : '');
   let lastGroup: string | undefined;
   const items: ReactNode[] = [];
+  let current: { icon?: ReactNode; label?: string } = {};
   for (const item of portal.nav) {
     if (item.group && item.group !== lastGroup) {
       items.push(
@@ -73,6 +50,7 @@ function ClassicLayout({ portal }: { portal: Portal }) {
     }
     const to = item.path ? `${portal.base}/${item.path}` : portal.base;
     const active = item.path ? loc.pathname.startsWith(to) : loc.pathname === portal.base || loc.pathname === `${portal.base}/`;
+    if (active) current = { icon: item.icon, label: item.label };
     items.push(
       <ListItemButton
         key={to}
@@ -80,7 +58,13 @@ function ClassicLayout({ portal }: { portal: Portal }) {
         to={to}
         selected={active}
         onClick={() => setOpen(false)}
-        sx={{ mx: 1, borderRadius: 2, mb: 0.25, '&.Mui-selected': { bgcolor: 'rgba(63,61,191,0.10)', color: 'primary.main', '& .MuiListItemIcon-root': { color: 'primary.main' } } }}
+        sx={{
+          mx: 1,
+          borderRadius: '12px',
+          mb: 0.25,
+          '&.Mui-selected': { background: 'linear-gradient(90deg, rgba(63,61,191,0.14), rgba(123,92,240,0.08))', color: 'primary.main', '& .MuiListItemIcon-root': { color: 'primary.main' } },
+          '&.Mui-selected::before': { content: '""', position: 'absolute', left: -8, top: 8, bottom: 8, width: 4, borderRadius: 4, bgcolor: 'primary.main' },
+        }}
       >
         <ListItemIcon sx={{ minWidth: 38 }}>{item.icon}</ListItemIcon>
         <ListItemText primary={item.label} slotProps={{ primary: { sx: { fontSize: 14.5, fontWeight: active ? 650 : 500 } } }} />
@@ -160,17 +144,14 @@ function ClassicLayout({ portal }: { portal: Portal }) {
         </Toolbar>
       </AppBar>
       <Box component="nav" sx={{ width: { md: WIDTH }, flexShrink: { md: 0 } }}>
-        <Drawer
-          variant={desktop ? 'permanent' : 'temporary'}
-          open={desktop || open}
-          onClose={() => setOpen(false)}
-          slotProps={{ paper: { sx: { width: WIDTH, borderRight: '1px solid #E4E6F0' } } }}
-        >
+        <Drawer variant={desktop ? 'permanent' : 'temporary'} open={desktop || open} onClose={() => setOpen(false)} slotProps={{ paper: { sx: { width: WIDTH, borderRight: '1px solid #E4E6F0' } } }}>
           {drawer}
         </Drawer>
       </Box>
       <Box component="main" sx={{ flex: 1, minWidth: 0, p: { xs: 2, md: 4 }, pt: { xs: 10, md: 12 }, maxWidth: 1400 }}>
-        <Outlet />
+        <PageIconContext.Provider value={current}>
+          <Outlet />
+        </PageIconContext.Provider>
       </Box>
     </Box>
   );

@@ -1,8 +1,11 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { speechCode } from '@/lib/languages';
+import { usePrefs } from '@/lib/prefs';
+import { sharedContext } from '@/lib/sharedContext';
+import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMe } from '@/auth/AuthContext';
 import { useGet, useSend } from '@/lib/hooks';
-import { lookFor, type Look } from './looks';
+import { lookFor, type Look, calmLook } from './looks';
 
 /**
  * While developing (npm run dev) you can preview any grade's look with ?grade=3 in the address
@@ -28,7 +31,7 @@ interface LookState {
   preview: number | null;
   setPreview: (g: number | null) => void;
 }
-const Ctx = createContext<LookState | null>(null);
+const Ctx = sharedContext<LookState | null>('look', null);
 
 export function LookProvider({ children }: { children: ReactNode }) {
   const me = useMe();
@@ -53,7 +56,9 @@ export function LookProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
   const realGrade = me.class?.grade ?? null;
-  const look = lookFor(preview ?? realGrade);
+  const { prefs } = usePrefs();
+  const plain = lookFor(preview ?? realGrade);
+  const look = prefs.calm ? calmLook(plain) : plain;
   return <Ctx.Provider value={{ look, realGrade, preview, setPreview }}>{children}</Ctx.Provider>;
 }
 
@@ -63,6 +68,8 @@ export function useLookState() {
   return v;
 }
 export const useLook = () => useLookState().look;
+/** The student look when inside the student app, otherwise null (staff pages share some screens). */
+export const useOptionalLook = () => useContext(Ctx)?.look ?? null;
 
 export interface Badge {
   key: string;
@@ -89,28 +96,58 @@ export const useRewards = () => useGet<Rewards>('/rewards/me');
 export const useClaim = (success: string) => useSend<void, Rewards & { gained: number }>('post', '/rewards/claim', { success, invalidate: ['/rewards/me'] });
 
 /** Progress through the current level, 0–100. */
-export const levelPercent = (r: Pick<Rewards, 'xp' | 'levelStart' | 'nextLevelAt'>) =>
-  Math.round(((r.xp - r.levelStart) / Math.max(1, r.nextLevelAt - r.levelStart)) * 100);
+export const levelPercent = (r: Pick<Rewards, 'xp' | 'levelStart' | 'nextLevelAt'>) => Math.round(((r.xp - r.levelStart) / Math.max(1, r.nextLevelAt - r.levelStart)) * 100);
 
 /** Friendly title for a level, used on the younger grades. */
 export function levelTitle(level: number) {
   return ['Little Learner', 'Bright Spark', 'Super Learner', 'Star Explorer', 'Rising Star', 'Brain Champion', 'Knowledge Hero', 'Master Mind'][Math.min(7, level - 1)];
 }
 
-/** Read text aloud with the browser's voice (used on Grades 1–3). */
-export function speak(text: string) {
+const FEMALE =
+  /female|woman|girl|zira|samantha|veena|lekha|heera|kalpana|priya|swara|neerja|aditi|raveena|karen|moira|tessa|fiona|victoria|susan|allison|ava|serena|kanya|sangeeta|pallavi|shruti|swathi|vani|kajal|ananya|meera|google uk english female/i;
+const MALE = /\bmale\b|\bman\b|boy|david|mark|daniel|alex|rishi|hemant|prabhat|ravi|madhur|fred|tom|aaron|arthur|valluvar|mohan|gagan|kiran|manohar|hari|google uk english male/i;
+
+export interface VoiceStyle {
+  gender: 'f' | 'm' | 'any';
+  pitch: number;
+  rate: number;
+}
+
+/**
+ * Read text aloud with the browser's voice, in the lesson's language (e.g. "hi" → a Hindi voice).
+ * `style` picks a woman's or man's voice when the device has one, and sets pitch and speed (NanoBot buddies).
+ * Returns false when this device has no voice for that language.
+ */
+export function speak(text: string, lang = 'en', style?: VoiceStyle) {
   try {
     const s = window.speechSynthesis;
     if (!s) return false;
     s.cancel();
+    const code = speechCode(lang);
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.92;
-    u.pitch = 1.1;
-    const voice = s.getVoices().find((v) => /en[-_](IN|GB|US)/i.test(v.lang));
+    u.lang = code;
+    u.rate = style?.rate ?? 0.92;
+    u.pitch = style?.pitch ?? 1.1;
+    const base = code.slice(0, 2);
+    const voices = s.getVoices();
+    const forLang = voices.filter((v) => v.lang.replace('_', '-') === code);
+    const forBase = voices.filter((v) => v.lang.toLowerCase().startsWith(base));
+    const pool = forLang.length ? forLang : forBase.length ? forBase : base === 'en' ? voices.filter((v) => /en[-_](IN|GB|US)/i.test(v.lang)) : [];
+    const want = style?.gender === 'f' ? FEMALE : style?.gender === 'm' ? MALE : null;
+    const other = style?.gender === 'f' ? MALE : style?.gender === 'm' ? FEMALE : null;
+    const voice = (want && pool.find((v) => want.test(v.name))) || (other && pool.find((v) => !other.test(v.name))) || pool[0];
     if (voice) u.voice = voice;
     s.speak(u);
-    return true;
+    return !!voice || base === 'en' || voices.length === 0;
   } catch {
     return false;
+  }
+}
+
+export function stopSpeaking() {
+  try {
+    window.speechSynthesis?.cancel();
+  } catch {
+    /* ignore */
   }
 }

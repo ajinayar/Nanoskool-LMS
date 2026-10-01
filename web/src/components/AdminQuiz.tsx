@@ -2,10 +2,8 @@
  * Content quizzes: the super admin's builder dialog, an attempts table, and the
  * read-only quiz page used by the admin, partner and school portals.
  */
-import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
-import CheckCircle from '@mui/icons-material/CheckCircle';
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from '@mui/material';
 import EditOutlined from '@mui/icons-material/EditOutlined';
-import RadioButtonUnchecked from '@mui/icons-material/RadioButtonUnchecked';
 import { useEffect, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { errorMessage } from '@/api/client';
@@ -13,26 +11,15 @@ import { refId, refName, type Quiz, type QuizAttempt } from '@/api/types';
 import { useMe } from '@/auth/AuthContext';
 import { useGet, useSend } from '@/lib/hooks';
 import { useBase } from '@/pages/shared/CommonPages';
-import { QuizEditor, emptyQuiz, quizPayload, validateQuiz, type QuizDraft } from './QuizEditor';
+import { QuestionReadout, QuizStudio, emptyQuiz, quizPayload, quizToDraft, validateQuiz, type QuizDraft } from './QuizEditor';
 import { useToast } from './Toast';
-import { CardGrid, DataTable, Empty, Loading, PageHeader, QueryState, RichText, Section, StatCard, StatusChip, fmtDateTime, pct } from './ui';
-import { BackLink, FormError } from './AdminCommon';
+import { CardGrid, DataTable, Empty, PageHeader, QueryState, RichText, Section, StatCard, StatusChip, fmtDateTime, pct } from './ui';
+import { BackLink } from './AdminCommon';
 
-export const quizToDraft = (q: Quiz): QuizDraft => ({
-  title: q.title,
-  description: q.description ?? '',
-  chapterId: q.chapterId ?? undefined,
-  timeLimitMin: q.timeLimitMin ?? null,
-  maxAttempts: q.maxAttempts ?? 1,
-  dueDate: q.dueDate ?? null,
-  status: q.status,
-  questions: q.questions.map((x) => ({ ...x, correct: x.correct ?? [0], explanation: x.explanation ?? '' })),
-});
+export { quizToDraft };
 
-/** Create (no quizId) or edit a content quiz for a course. */
+/** Create (no quizId) or edit a content quiz for a course, in the full-screen Quiz Studio. */
 export function QuizEditDialog({ courseId, quizId, chapters, onClose }: { courseId: string; quizId?: string; chapters: { _id: string; title: string }[]; onClose: () => void }) {
-  const theme = useTheme();
-  const small = useMediaQuery(theme.breakpoints.down('sm'));
   const toast = useToast();
   const existing = useGet<Quiz>(quizId ? `/quizzes/${quizId}` : null);
   const [draft, setDraft] = useState<QuizDraft | null>(quizId ? null : emptyQuiz());
@@ -54,24 +41,21 @@ export function QuizEditDialog({ courseId, quizId, chapters, onClose }: { course
     if (v) return;
     save.mutate({ ...quizPayload(draft), ...(quizId ? {} : { courseId }) });
   };
+  const fallback = emptyQuiz();
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="md" fullScreen={small} scroll="paper">
-      <DialogTitle>{quizId ? 'Edit quiz' : 'New quiz'}</DialogTitle>
-      <DialogContent dividers>
-        {existing.error ? <Alert severity="error">{errorMessage(existing.error)}</Alert> : !draft ? <Loading /> : <QuizEditor value={draft} onChange={setDraft} chapters={chapters} />}
-      </DialogContent>
-      {(!!err || !!save.error) && (
-        <Box sx={{ px: 3, pt: 1.5 }}>
-          <FormError message={err} error={save.error} />
-        </Box>
-      )}
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={submit} disabled={save.isPending || !draft}>
-          {save.isPending ? 'Saving…' : quizId ? 'Save quiz' : 'Create quiz'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <QuizStudio
+      heading={quizId ? 'Edit course quiz' : 'New course quiz'}
+      draft={draft ?? fallback}
+      onChange={setDraft}
+      loading={!draft}
+      chapters={chapters}
+      courseId={courseId}
+      onClose={onClose}
+      onSave={submit}
+      saving={save.isPending}
+      saveLabel={quizId ? 'Save quiz' : 'Create quiz'}
+      error={existing.error ? errorMessage(existing.error) : (err ?? (save.error ? errorMessage(save.error) : null))}
+    />
   );
 }
 
@@ -86,7 +70,15 @@ export function AttemptsTable({ quizId }: { quizId: string }) {
           rows={rows}
           empty={<Empty title="No attempts yet" hint="Results appear here once students submit the quiz." />}
           columns={[
-            { key: 'student', label: 'Student', render: (a) => <Typography variant="body2" sx={{ fontWeight: 600 }}>{refName(a.studentId) || 'Student'}</Typography> },
+            {
+              key: 'student',
+              label: 'Student',
+              render: (a) => (
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {refName(a.studentId) || 'Student'}
+                </Typography>
+              ),
+            },
             { key: 'class', label: 'Class', render: (a) => refName(a.classId) || '—' },
             { key: 'score', label: 'Score', align: 'right', render: (a) => `${a.score}/${a.maxScore}` },
             { key: 'pct', label: '%', align: 'right', render: (a) => <Chip size="small" label={`${a.percent}%`} color={a.percent >= 75 ? 'success' : a.percent >= 40 ? 'default' : 'warning'} /> },
@@ -154,7 +146,7 @@ export function QuizDetailPage() {
             <CardGrid min={180}>
               <StatCard label="Questions" value={quiz.questions.length} hint={`${totalPoints} points`} />
               <StatCard label="Time limit" value={quiz.timeLimitMin ? `${quiz.timeLimitMin} min` : 'None'} />
-              <StatCard label="Attempts allowed" value={quiz.maxAttempts ?? 1} />
+              <StatCard label="Attempts allowed" value={quiz.maxAttempts ?? 1} hint={quiz.passPercent ? `Pass mark ${quiz.passPercent}%` : undefined} />
               <StatCard label="Average score" value={pct(avg)} hint={`${rows.length} attempts`} />
             </CardGrid>
             <Box sx={{ mt: 3 }} />
@@ -174,31 +166,7 @@ export function QuizDetailPage() {
               ) : (
                 <Stack spacing={1.5}>
                   {quiz.questions.map((x, i) => (
-                    <Paper key={x._id ?? i} variant="outlined" sx={{ p: 2 }}>
-                      <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'baseline' }}>
-                        <Typography sx={{ fontWeight: 700 }}>Q{i + 1}.</Typography>
-                        <Typography sx={{ flex: 1, fontWeight: 550 }}>{x.text}</Typography>
-                        <Chip size="small" variant="outlined" label={`${x.points ?? 1} pt${(x.points ?? 1) === 1 ? '' : 's'}`} />
-                      </Stack>
-                      <Stack spacing={0.5} sx={{ pl: 3.5 }}>
-                        {x.options.map((o, oi) => {
-                          const right = x.correct?.includes(oi);
-                          return (
-                            <Stack key={oi} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                              {right ? <CheckCircle fontSize="small" color="success" /> : <RadioButtonUnchecked fontSize="small" color="disabled" />}
-                              <Typography variant="body2" sx={{ fontWeight: right ? 650 : 400 }}>
-                                {o}
-                              </Typography>
-                            </Stack>
-                          );
-                        })}
-                      </Stack>
-                      {x.explanation && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1, pl: 3.5 }}>
-                          {x.explanation}
-                        </Typography>
-                      )}
-                    </Paper>
+                    <QuestionReadout key={x._id ?? i} q={x} index={i} />
                   ))}
                 </Stack>
               )}
@@ -213,4 +181,3 @@ export function QuizDetailPage() {
     </QueryState>
   );
 }
-

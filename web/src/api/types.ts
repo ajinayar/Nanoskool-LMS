@@ -47,10 +47,20 @@ export interface User {
 }
 
 export interface Profile extends User {
-  school?: { _id: string; name: string; code?: string; logoUrl?: string; academicYear?: string } | null;
+  school?: { _id: string; name: string; code?: string; logoUrl?: string; academicYear?: string; nanobotBuddies?: string[] } | null;
   partner?: { _id: string; name: string; code?: string } | null;
   class?: ClassRef | null;
   children: (User & { classId?: ClassRef })[];
+  prefs?: LearnPrefs;
+}
+
+export interface LearnPrefs {
+  language?: string;
+  calm?: boolean;
+  readAloud?: boolean;
+  textSize?: 'normal' | 'large' | 'xlarge';
+  learnWay?: 'mixed' | 'reading' | 'listening' | 'pictures';
+  buddy?: string; // NanoBot character (lib/buddies.ts)
 }
 
 export interface Paged<T> {
@@ -92,6 +102,7 @@ export interface School {
   academicYear?: string;
   plan?: 'basic' | 'standard' | 'premium';
   aiMonthlyTokens?: number;
+  nanobotBuddies?: string[];
   status: 'active' | 'inactive';
   students?: number;
   teachers?: number;
@@ -128,7 +139,56 @@ export interface Course {
   updatedAt?: string;
 }
 
-export type UnitType = 'lesson' | 'video' | 'pdf' | 'activity' | 'link';
+export type UnitType = 'lesson' | 'video' | 'pdf' | 'activity' | 'link' | 'presentation' | 'motion' | 'gallery' | 'sim3d';
+export type BlockKind = 'text' | 'video' | 'presentation' | 'activity' | 'pdf' | 'link' | 'motion' | 'gallery' | 'sim3d' | 'check';
+/** One piece of a learning unit's content; a unit is a list of blocks shown in order. */
+export interface UnitBlock {
+  _id?: string;
+  key?: string; // client-side id for new blocks
+  aiPending?: boolean; // client-side: fill this section with AI when it appears in the builder
+  aiBrief?: string; // client-side: what the AI should write in this section (from a unit plan)
+  aiFiles?: { url: string; name: string }[]; // client-side: the teacher's reference files for the AI
+  kind: BlockKind;
+  title?: string;
+  body?: string;
+  videoUrl?: string;
+  fileUrl?: string;
+  linkUrl?: string;
+  motionUrl?: string;
+  motionLoop?: boolean;
+  simUrl?: string;
+  deckTheme?: string;
+  slides?: Slide[];
+  gallery?: GalleryImage[];
+  // Quick check
+  question?: string;
+  choices?: { _id?: string; text: string; correct?: boolean }[];
+  explain?: string; // shown when right
+  help?: string; // HTML shown when wrong: the idea explained more simply
+}
+export interface GalleryImage {
+  _id?: string;
+  url: string;
+  caption?: string;
+  alt?: string;
+}
+
+export type SlideLayout = 'title' | 'section' | 'bullets' | 'image-right' | 'image-full' | 'two-column' | 'quote' | 'icons' | 'steps' | 'fact' | 'quiz';
+export interface Slide {
+  _id?: string;
+  layout: SlideLayout;
+  title?: string;
+  subtitle?: string;
+  bullets?: string[];
+  bullets2?: string[];
+  imageUrl?: string;
+  imageAlt?: string;
+  notes?: string;
+  background?: string;
+  icon?: string; // built-in graphic (components/slides/graphics.tsx)
+  icons?: string[]; // one per point (icons / steps)
+  answer?: number; // quiz: the right option
+}
 
 export interface Unit {
   _id: string;
@@ -144,6 +204,13 @@ export interface Unit {
   durationMin?: number;
   position?: number;
   completed?: boolean;
+  deckTheme?: string;
+  slides?: Slide[];
+  simUrl?: string;
+  motionUrl?: string;
+  motionLoop?: boolean;
+  gallery?: GalleryImage[];
+  blocks?: UnitBlock[];
 }
 
 export interface UnitDetail extends Unit {
@@ -151,6 +218,9 @@ export interface UnitDetail extends Unit {
   chapter: { _id: string; title: string };
   prev: { _id: string; title: string } | null;
   next: { _id: string; title: string } | null;
+  checks?: Record<string, { passed: boolean; attempts: number }>; // the student's quick checks
+  lang?: string; // language this unit is shown in
+  languages?: string[]; // languages with an approved translation (always includes en)
 }
 
 export interface Chapter {
@@ -188,9 +258,12 @@ export interface ClassCourse {
 export interface Question {
   _id?: string;
   text: string;
-  type: 'single' | 'multiple' | 'true_false';
+  type: 'single' | 'multiple' | 'true_false' | 'short';
   options: string[];
   correct?: number[];
+  accepted?: string[]; // short answer: answers marked right (case and spacing ignored)
+  mediaUrl?: string; // a picture the question is about
+  hint?: string;
   points: number;
   explanation?: string;
 }
@@ -215,6 +288,9 @@ export interface QuizSummary {
 
 export interface Quiz extends QuizSummary {
   questions: Question[];
+  shuffleQuestions?: boolean;
+  showAnswers?: 'after_submit' | 'never';
+  passPercent?: number | null;
   editable?: boolean;
   attempts?: QuizAttempt[];
   attemptsLeft?: number;
@@ -237,7 +313,10 @@ export interface AttemptResult {
   maxScore: number;
   percent: number;
   attemptsLeft: number;
-  review: { questionId: string; text: string; options: string[]; selected: number[]; correct: number[]; isCorrect: boolean; points: number; explanation?: string }[];
+  passed?: boolean | null;
+  passPercent?: number | null;
+  answersShown?: boolean;
+  review: { questionId: string; type?: Question['type']; text: string; mediaUrl?: string; options: string[]; selected: number[]; typed?: string; correct: number[]; accepted?: string[]; isCorrect: boolean; points: number; explanation?: string }[];
 }
 
 export interface Submission {
@@ -273,6 +352,15 @@ export interface Assignment {
   gradedCount?: number;
   roster?: { student: User; submission: Submission | null }[];
   submissions?: Submission[];
+  steps?: TaskStep[] | null; // the student's own small steps ("break it into steps")
+  stepsBy?: 'ai' | 'offline' | 'student' | null;
+}
+
+export interface TaskStep {
+  _id?: string;
+  text: string;
+  minutes: number;
+  done: boolean;
 }
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
@@ -348,5 +436,4 @@ export interface AiChat {
 
 /** Many API fields come back either as an id or a populated object. */
 export const refId = (v: unknown): string => (v && typeof v === 'object' ? String((v as { _id: string })._id) : String(v ?? ''));
-export const refName = (v: unknown): string =>
-  v && typeof v === 'object' ? String((v as { name?: string; title?: string }).name ?? (v as { title?: string }).title ?? '') : '';
+export const refName = (v: unknown): string => (v && typeof v === 'object' ? String((v as { name?: string; title?: string }).name ?? (v as { title?: string }).title ?? '') : '');

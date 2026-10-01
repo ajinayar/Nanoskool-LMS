@@ -73,13 +73,10 @@ function Sidebar({ portal, onNavigate }: { portal: Portal; onNavigate: () => voi
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 2, gap: 3, overflowY: 'auto' }}>
-      <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', px: 1.5, minHeight: 32 }}>
-        <Box sx={{ width: 32, height: 32, borderRadius: '10px', bgcolor: CLARITY.ink, color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 600 }}>N</Box>
-        <Box>
-          <Typography sx={{ fontWeight: 600, fontSize: 19, letterSpacing: '-0.02em', lineHeight: 1.1 }}>Nanoskool</Typography>
-          <Typography sx={{ fontSize: 12, color: CLARITY.ink3 }}>{ROLE_LABEL[me.role]}</Typography>
-        </Box>
-      </Stack>
+      <Box sx={{ px: 1.5 }}>
+        <Box component="img" src="/brand/nanoskool-logo.png" alt="Nanoskool" sx={{ height: 36, width: 'auto', display: 'block' }} />
+        <Typography sx={{ fontSize: 12, color: CLARITY.ink3, mt: 0.75 }}>{ROLE_LABEL[me.role]}</Typography>
+      </Box>
       {groups.map((g, gi) => (
         <Box key={g.name ?? gi}>
           {g.name && gi > 0 && (
@@ -116,7 +113,15 @@ function Sidebar({ portal, onNavigate }: { portal: Portal; onNavigate: () => voi
           <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', pl: 1.5, pr: 0.5, mb: 1 }}>
             <Typography sx={{ fontWeight: 600, fontSize: 12.5, color: CLARITY.ink3, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{teamLabel}</Typography>
             <Tooltip title={me.role === 'school_admin' ? 'Add a teacher' : 'Add a super admin'}>
-              <IconButton size="small" aria-label="Add a team member" onClick={() => { navigate(`${portal.base}/${teamAdd}`); onNavigate(); }} sx={{ color: CLARITY.ink2 }}>
+              <IconButton
+                size="small"
+                aria-label="Add a team member"
+                onClick={() => {
+                  navigate(`${portal.base}/${teamAdd}`);
+                  onNavigate();
+                }}
+                sx={{ color: CLARITY.ink2 }}
+              >
                 <Add fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -124,14 +129,24 @@ function Sidebar({ portal, onNavigate }: { portal: Portal; onNavigate: () => voi
           <Stack spacing={1.25} sx={{ px: 1.5 }}>
             {team.map((m) => (
               <Stack key={m._id} direction="row" spacing={1.25} sx={{ alignItems: 'center' }}>
-                <Badge overlap="circular" variant="dot" invisible={!isOnline(m.lastLoginAt)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} sx={{ '& .MuiBadge-dot': { bgcolor: CLARITY.green, border: `2px solid ${CLARITY.panel}`, width: 11, height: 11, borderRadius: '50%' } }}>
+                <Badge
+                  overlap="circular"
+                  variant="dot"
+                  invisible={!isOnline(m.lastLoginAt)}
+                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                  sx={{ '& .MuiBadge-dot': { bgcolor: CLARITY.green, border: `2px solid ${CLARITY.panel}`, width: 11, height: 11, borderRadius: '50%' } }}
+                >
                   <Avatar src={m.avatarUrl} sx={{ width: 32, height: 32, fontSize: 14, bgcolor: CLARITY.lilac, color: CLARITY.ink }}>
                     {m.name[0]}
                   </Avatar>
                 </Badge>
                 <Box sx={{ minWidth: 0 }}>
-                  <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600 }}>{m.name}</Typography>
-                  <Typography noWrap sx={{ fontSize: 12, color: CLARITY.ink3 }}>{m.lastLoginAt ? `Active ${fromNow(m.lastLoginAt)}` : 'Not signed in yet'}</Typography>
+                  <Typography noWrap sx={{ fontSize: 13.5, fontWeight: 600 }}>
+                    {m.name}
+                  </Typography>
+                  <Typography noWrap sx={{ fontSize: 12, color: CLARITY.ink3 }}>
+                    {m.lastLoginAt ? `Active ${fromNow(m.lastLoginAt)}` : 'Not signed in yet'}
+                  </Typography>
                 </Box>
               </Stack>
             ))}
@@ -203,12 +218,27 @@ function ClarityShell({ portal }: { portal: Portal }) {
             <Typography sx={{ fontSize: 14, fontWeight: 600, display: { xs: 'none', sm: 'block' } }}>{me.name}</Typography>
           </Box>
           <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-            <MenuItem onClick={() => { setAnchor(null); navigate(`${portal.base}/profile`); }}>
-              <ListItemIcon><PersonOutlined fontSize="small" /></ListItemIcon>
+            <MenuItem
+              onClick={() => {
+                setAnchor(null);
+                navigate(`${portal.base}/profile`);
+              }}
+            >
+              <ListItemIcon>
+                <PersonOutlined fontSize="small" />
+              </ListItemIcon>
               My profile
             </MenuItem>
-            <MenuItem onClick={async () => { setAnchor(null); await logout(); navigate('/login'); }}>
-              <ListItemIcon><Logout fontSize="small" /></ListItemIcon>
+            <MenuItem
+              onClick={async () => {
+                setAnchor(null);
+                await logout();
+                navigate('/login');
+              }}
+            >
+              <ListItemIcon>
+                <Logout fontSize="small" />
+              </ListItemIcon>
               Sign out
             </MenuItem>
           </Menu>

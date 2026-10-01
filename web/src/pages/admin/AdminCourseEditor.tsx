@@ -12,8 +12,6 @@ import {
   MenuItem,
   Paper,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
@@ -30,19 +28,18 @@ import PublishOutlined from '@mui/icons-material/PublishOutlined';
 import UnpublishedOutlined from '@mui/icons-material/UnpublishedOutlined';
 import VisibilityOutlined from '@mui/icons-material/VisibilityOutlined';
 import QuizOutlined from '@mui/icons-material/QuizOutlined';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
-import { refId, type Chapter, type Course, type CourseDetail, type CourseGrant, type Paged, type Partner, type QuizSummary, type School, type Unit, type UnitDetail, type UnitType } from '@/api/types';
+import { refId, type Chapter, type Course, type CourseDetail, type CourseGrant, type Paged, type Partner, type QuizSummary, type School, type Unit } from '@/api/types';
 import { useGet, useSend } from '@/lib/hooks';
 import { RichEditor } from '@/components/RichEditor';
 import { useToast } from '@/components/Toast';
-import { ConfirmDialog, DataTable, Empty, FormDialog, Loading, PageHeader, QueryState, Section, StatusChip, UploadButton, fmtDate } from '@/components/ui';
+import { ConfirmDialog, DataTable, Empty, FormDialog, PageHeader, QueryState, Section, StatusChip, UploadButton, fmtDate } from '@/components/ui';
 import { BackLink, FormError, RowMenu, TabBar, useTab } from '@/components/AdminCommon';
 import { AttemptsDialog, QuizEditDialog } from '@/components/AdminQuiz';
 import { CourseThumb, UNIT_ICON } from '@/pages/shared/CoursePages';
 import { CATEGORIES, GradesSelect } from './AdminCourses';
-import { ActivitiesEditor, ObjectivesEditor, journeyProblems } from '@/components/JourneyEditors';
-import type { Activity, Objective, Skill, Tool } from '@/api/journey';
+import { LessonBuilder, UNIT_LABEL } from './LessonBuilder';
 
 const TABS = ['details', 'content', 'quizzes', 'access'] as const;
 
@@ -123,148 +120,6 @@ function DetailsTab({ course }: { course: CourseDetail }) {
 }
 
 /* ---------------------------------------------------------------- Units */
-
-const UNIT_TYPES: { value: UnitType; label: string }[] = [
-  { value: 'lesson', label: 'Lesson' },
-  { value: 'video', label: 'Video' },
-  { value: 'pdf', label: 'PDF / document' },
-  { value: 'activity', label: 'Hands-on activity' },
-  { value: 'link', label: 'External link' },
-];
-
-function UnitDialog({ chapter, unitId, onClose }: { chapter: Chapter; unitId?: string; onClose: () => void }) {
-  const existing = useGet<UnitDetail>(unitId ? `/units/${unitId}` : null);
-  const [u, setU] = useState<Partial<Unit> | null>(unitId ? null : { title: '', type: 'lesson', summary: '', body: '', videoUrl: '', fileUrl: '', linkUrl: '', durationMin: 10 });
-  const [err, setErr] = useState<string | null>(null);
-  const [tab, setTab] = useState<'lesson' | 'objectives' | 'activities'>('lesson');
-  const [objectives, setObjectives] = useState<Objective[] | null>(unitId ? null : []);
-  const [activities, setActivities] = useState<Activity[] | null>(unitId ? null : []);
-  const skills = useGet<Skill[]>('/skills');
-  const quizzes = useGet<QuizSummary[]>('/quizzes', { courseId: chapter.courseId });
-  const tools = useGet<Tool[]>('/tools');
-  useEffect(() => {
-    if (unitId && existing.data) {
-      setU((x) => x ?? existing.data!);
-      const d = existing.data as UnitDetail & { objectives?: Objective[]; activities?: Activity[] };
-      setObjectives((x) => x ?? (d.objectives ?? []).map((o) => ({ ...o, skillIds: (o.skillIds ?? []).map(String) })));
-      setActivities((x) => x ?? (d.activities ?? []).map((a) => ({ ...a, objectiveIds: (a.objectiveIds ?? []).map(String), quizId: a.quizId ?? null, toolId: a.toolId ?? null })));
-    }
-  }, [unitId, existing.data]);
-  const save = useSend<Record<string, unknown>>(unitId ? 'patch' : 'post', unitId ? `/units/${unitId}` : `/chapters/${chapter._id}/units`, {
-    success: unitId ? 'Learning unit saved' : 'Learning unit added',
-    invalidate: ['/courses', '/units'],
-    onSuccess: onClose,
-  });
-  const set = (p: Partial<Unit>) => setU((x) => ({ ...x, ...p }));
-  const submit = () => {
-    if (!u) return;
-    let v: string | null = null;
-    if (!u.title?.trim()) v = 'Give the learning unit a title';
-    else if (u.type === 'video' && !u.videoUrl?.trim()) v = 'Add the video URL';
-    else if (u.type === 'pdf' && !u.fileUrl) v = 'Upload the PDF or document';
-    else if (u.type === 'link' && !u.linkUrl?.trim()) v = 'Add the link URL';
-    else if (u.durationMin != null && (u.durationMin < 1 || u.durationMin > 600)) v = 'Duration must be between 1 and 600 minutes';
-    else v = journeyProblems(objectives ?? [], activities ?? []);
-    setErr(v);
-    if (v) {
-      if (v.startsWith('Every objective')) setTab('objectives');
-      else if (/activit|quiz|tool/i.test(v)) setTab('activities');
-      return;
-    }
-    save.mutate({
-      title: u.title!.trim(),
-      type: u.type,
-      summary: u.summary ?? '',
-      body: u.body ?? '',
-      videoUrl: u.videoUrl?.trim() ?? '',
-      fileUrl: u.fileUrl ?? '',
-      linkUrl: u.linkUrl?.trim() ?? '',
-      ...(u.durationMin ? { durationMin: Math.round(u.durationMin) } : {}),
-      objectives: (objectives ?? []).map((o) => ({ _id: o._id, title: o.title.trim(), description: o.description ?? '', criteria: o.criteria ?? '', skillIds: o.skillIds ?? [], weight: o.weight ?? 1 })),
-      activities: (activities ?? []).map((a) => ({
-        _id: a._id,
-        kind: a.kind,
-        title: a.title.trim(),
-        instructions: a.instructions ?? '',
-        quizId: a.kind === 'quiz' ? a.quizId : null,
-        toolId: a.kind === 'tool' ? a.toolId : null,
-        objectiveIds: a.objectiveIds.filter((id) => (objectives ?? []).some((o) => o._id === id)),
-        scoring: a.scoring,
-        weight: a.weight ?? 1,
-        required: a.required !== false,
-        mediaTypes: a.mediaTypes ?? [],
-      })),
-    });
-  };
-  return (
-    <FormDialog open title={unitId ? 'Edit learning unit' : `New learning unit in “${chapter.title}”`} maxWidth="md" onClose={onClose} onSubmit={submit} loading={save.isPending || !u} submitLabel={unitId ? 'Save learning unit' : 'Add learning unit'}>
-      {existing.error ? (
-        <FormError error={existing.error} />
-      ) : !u || !objectives || !activities ? (
-        <Loading />
-      ) : (
-        <>
-          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', mt: -1 }}>
-            <Tab value="lesson" label="Lesson" />
-            <Tab value="objectives" label={`Objectives (${objectives.length})`} />
-            <Tab value="activities" label={`Outcome activities (${activities.length})`} />
-          </Tabs>
-          {tab === 'objectives' && <ObjectivesEditor value={objectives} onChange={setObjectives} skills={skills.data ?? []} />}
-          {tab === 'activities' && <ActivitiesEditor value={activities} onChange={setActivities} objectives={objectives} quizzes={quizzes.data ?? []} tools={tools.data ?? []} />}
-          {tab === 'lesson' && (
-          <>
-          <TextField label="Learning unit title" value={u.title ?? ''} onChange={(e) => set({ title: e.target.value })} required autoFocus />
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField select label="Type" value={u.type ?? 'lesson'} onChange={(e) => set({ type: e.target.value as UnitType })}>
-              {UNIT_TYPES.map((t) => (
-                <MenuItem key={t.value} value={t.value}>
-                  {t.label}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField label="Duration (minutes)" type="number" value={u.durationMin ?? ''} onChange={(e) => set({ durationMin: e.target.value ? Number(e.target.value) : undefined })} slotProps={{ htmlInput: { min: 1, max: 600 } }} />
-          </Stack>
-          <TextField label="Summary" value={u.summary ?? ''} onChange={(e) => set({ summary: e.target.value })} multiline minRows={2} helperText="One or two lines shown above the lesson" slotProps={{ htmlInput: { maxLength: 1000 } }} />
-          {(u.type === 'video' || u.videoUrl) && (
-            <TextField label="Video URL" value={u.videoUrl ?? ''} onChange={(e) => set({ videoUrl: e.target.value })} required={u.type === 'video'} helperText="YouTube, Vimeo or a direct .mp4 link" />
-          )}
-          {(u.type === 'pdf' || u.type === 'activity' || u.fileUrl) && (
-            <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {u.type === 'pdf' ? 'Document' : 'Attachment (optional)'}
-              </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' } }}>
-                <UploadButton folder="content" accept=".pdf,image/*,video/*,.ppt,.pptx,.doc,.docx,.zip" label={u.fileUrl ? 'Replace file' : 'Upload file'} onUploaded={(url) => set({ fileUrl: url })} />
-                {u.fileUrl && (
-                  <>
-                    <Button href={u.fileUrl} target="_blank" rel="noopener" size="small">
-                      Open current file
-                    </Button>
-                    <Button color="error" size="small" onClick={() => set({ fileUrl: '' })}>
-                      Remove
-                    </Button>
-                  </>
-                )}
-              </Stack>
-            </Box>
-          )}
-          {(u.type === 'link' || u.type === 'activity' || u.linkUrl) && (
-            <TextField label={u.type === 'link' ? 'Link URL' : 'Activity link (optional)'} value={u.linkUrl ?? ''} onChange={(e) => set({ linkUrl: e.target.value })} required={u.type === 'link'} placeholder="https://" />
-          )}
-          <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Lesson content
-            </Typography>
-            <RichEditor value={u.body ?? ''} onChange={(body) => set({ body })} placeholder="Write the lesson" minHeight={220} />
-          </Box>
-          </>
-          )}
-        </>
-      )}
-      <FormError message={err} error={save.error} />
-    </FormDialog>
-  );
-}
 
 /* -------------------------------------------------------------- Content */
 
@@ -367,7 +222,7 @@ function ContentTab({ course }: { course: CourseDetail }) {
                   <ListItemIcon sx={{ minWidth: 36 }}>{UNIT_ICON[u.type]}</ListItemIcon>
                   <ListItemText
                     primary={u.title}
-                    secondary={`${UNIT_TYPES.find((t) => t.value === u.type)?.label ?? u.type} · ${u.durationMin ?? 10} min · ${(u as { objectives?: unknown[] }).objectives?.length ?? 0} objectives · ${(u as { activities?: unknown[] }).activities?.length ?? 0} activities`}
+                    secondary={`${UNIT_LABEL[u.type] ?? u.type} · ${u.durationMin ?? 10} min · ${(u as { objectives?: unknown[] }).objectives?.length ?? 0} objectives · ${(u as { activities?: unknown[] }).activities?.length ?? 0} activities`}
                     slotProps={{ primary: { noWrap: true } }}
                   />
                 </ListItem>
@@ -403,7 +258,7 @@ function ContentTab({ course }: { course: CourseDetail }) {
         <TextField label="Chapter title" value={chapterTitle} onChange={(e) => setChapterTitle(e.target.value)} required autoFocus />
         <FormError error={addChapter.error ?? renameChapter.error} />
       </FormDialog>
-      {unitDialog && <UnitDialog chapter={unitDialog.chapter} unitId={unitDialog.unitId} onClose={() => setUnitDialog(null)} />}
+      {unitDialog && <LessonBuilder chapter={unitDialog.chapter} unitId={unitDialog.unitId} onClose={() => setUnitDialog(null)} />}
       <ConfirmDialog
         open={!!delChapter}
         danger

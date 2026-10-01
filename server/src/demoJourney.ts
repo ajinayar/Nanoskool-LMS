@@ -1,7 +1,7 @@
 /**
  * Demo data for the learning journey, added to an existing database (nothing is deleted):
- *   - the eight starting 21st-century skills with level descriptions
- *   - an item bank and a published skills mission for each grade band
+ *   - the eight Genius Habits (21st-century skills) with their five growth stages
+ *   - an item bank and a published skills mission for each grade (1–10)
  *   - Super Tutor and Debating App registered as built-in demo tools
  *   - learning objectives and outcome activities for every learning unit of the demo courses
  *   - parent consent for the demo students (as if the paper forms were signed)
@@ -11,6 +11,8 @@
 import mongoose, { Types } from 'mongoose';
 import { connectDb } from './db.js';
 import { randomToken } from './lib/tokens.js';
+import { BAND_TO_GRADES, migrateGrades } from './lib/migrateGrades.js';
+import { STAGE_TEXT, habitNameFor, migrateHabits } from './lib/genius.js';
 import { AssessmentForm, AssessmentItem, Course, Quiz, Skill, ToolIntegration, Unit, User } from './models/index.js';
 
 const SKILLS = [
@@ -23,12 +25,7 @@ const SKILLS = [
   { name: 'Curiosity and initiative', color: '#FCE0B8', description: 'Asks questions and explores without being told.' },
   { name: 'Self-management', color: '#F8D3E6', description: 'Plans, keeps going and reflects on their own learning.' },
 ];
-const LEVELS = {
-  emerging: 'Starting to show this with help',
-  developing: 'Shows this sometimes, with some support',
-  proficient: 'Shows this reliably on their own',
-  advanced: 'Shows this in new situations and helps others',
-};
+const LEVELS = STAGE_TEXT;
 
 type ItemSeed = { type: 'single' | 'multiple' | 'scale' | 'open' | 'upload'; prompt: string; skills: string[]; options?: [string, number][]; scale?: string[]; rubric?: string[] };
 const SCALE = ['Never', 'Rarely', 'Sometimes', 'Often', 'Always'];
@@ -103,20 +100,30 @@ async function main() {
   // Skills
   const skillId = new Map<string, Types.ObjectId>();
   for (const [i, s] of SKILLS.entries()) {
-    const doc = await Skill.findOneAndUpdate({ name: s.name }, { $setOnInsert: { ...s, levels: LEVELS, position: i, active: true } }, { upsert: true, new: true });
+    const doc = await Skill.findOneAndUpdate({ name: s.name }, { $setOnInsert: { ...s, habit: habitNameFor(s.name), levels: LEVELS, position: i, active: true } }, { upsert: true, new: true });
     skillId.set(s.name, doc._id);
   }
-  console.log(`Skills: ${SKILLS.length}`);
+  await migrateHabits();
+  console.log(`Genius Habits: ${SKILLS.length}`);
 
-  // Item bank and one published mission per band
+  // Item bank per age group, and one published mission for every grade 1–10
+  await migrateGrades();
   const admin = await User.findOne({ role: 'super_admin' }).select('_id').lean();
   for (const band of ['little', 'junior', 'senior'] as const) {
-    if (await AssessmentForm.exists({ band, status: 'published' })) {
-      console.log(`Mission for ${band}: already published`);
+    const grades = BAND_TO_GRADES[band];
+    const missing = [];
+    for (const g of grades) if (!(await AssessmentForm.exists({ grade: g, status: 'published' }))) missing.push(g);
+    if (!missing.length) {
+      console.log(`Missions for grades ${grades.join(', ')}: already published`);
       continue;
     }
     const ids: Types.ObjectId[] = [];
     for (const it of BANK[band]) {
+      const found = await AssessmentItem.findOne({ prompt: it.prompt }).select('_id').lean();
+      if (found) {
+        ids.push(found._id);
+        continue;
+      }
       const doc = await AssessmentItem.create({
         type: it.type,
         prompt: it.prompt,
@@ -124,14 +131,16 @@ async function main() {
         scaleLabels: it.scale,
         rubric: it.rubric,
         skills: it.skills.map((n) => ({ skillId: skillId.get(n), weight: 1 })),
-        bands: [band],
+        grades,
         status: 'published',
         createdBy: admin?._id,
       });
       ids.push(doc._id);
     }
-    await AssessmentForm.create({ title: MISSION[band], band, intro: 'A short set of puzzles and tasks. There are no wrong answers, only interesting ideas!', itemIds: ids, status: 'published', createdBy: admin?._id });
-    console.log(`Mission for ${band}: ${ids.length} questions`);
+    for (const g of missing) {
+      await AssessmentForm.create({ title: `Genius Quest · Grade ${g}`, grade: g, intro: 'A short set of puzzles and tasks. There are no wrong answers, only interesting ideas!', itemIds: ids, status: 'published', createdBy: admin?._id });
+    }
+    console.log(`Missions for grades ${missing.join(', ')}: ${ids.length} questions each`);
   }
 
   // Tools (built-in demo versions until the real apps are connected)

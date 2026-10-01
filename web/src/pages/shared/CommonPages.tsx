@@ -1,18 +1,4 @@
-import {
-  Avatar,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Checkbox,
-  Chip,
-  FormControlLabel,
-  FormGroup,
-  MenuItem,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Avatar, Box, Button, Card, CardContent, Checkbox, Chip, FormControlLabel, FormGroup, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import Add from '@mui/icons-material/Add';
 import CampaignOutlined from '@mui/icons-material/CampaignOutlined';
 import DeleteOutline from '@mui/icons-material/DeleteOutlined';
@@ -34,6 +20,7 @@ import { useTheme } from '@mui/material/styles';
 import { isClarity } from '@/theme-clarity';
 import { ClarityAnnouncements } from './ClarityAnnouncements';
 import { ClarityEvents } from './ClarityEvents';
+import { AnnouncementsBoard, EventRow, EventsBoard } from './ColourfulBoards';
 
 export const useBase = () => PORTAL_BASE[useMe().role];
 
@@ -94,8 +81,7 @@ export function ProfilePage() {
 
 /* ------------------------------------------------------- Announcements */
 
-export const scopeLabel = (a: Announcement) =>
-  a.scope === 'global' ? 'Nanoskool' : a.scope === 'partner' ? 'Partner' : a.scope === 'school' ? refName(a.schoolId) || 'School' : refName(a.classId) || 'Class';
+export const scopeLabel = (a: Announcement) => (a.scope === 'global' ? 'Nanoskool' : a.scope === 'partner' ? 'Partner' : a.scope === 'school' ? refName(a.schoolId) || 'School' : refName(a.classId) || 'Class');
 
 export function AnnouncementList({ items, onDelete }: { items: Announcement[]; onDelete?: (a: Announcement) => void }) {
   const me = useMe();
@@ -150,9 +136,15 @@ export function AnnouncementsPage() {
           <PageHeader
             title="Announcements"
             subtitle="News and notices for you"
-            actions={canPost && <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)}>New announcement</Button>}
+            actions={
+              canPost && (
+                <Button variant="contained" startIcon={<Add />} onClick={() => setOpen(true)}>
+                  New announcement
+                </Button>
+              )
+            }
           />
-          <QueryState q={q}>{(items) => <AnnouncementList items={items} onDelete={canPost ? setDel : undefined} />}</QueryState>
+          <QueryState q={q}>{(items) => <AnnouncementsBoard items={items} onDelete={canPost ? setDel : undefined} />}</QueryState>
         </>
       )}
       {open && <AnnouncementDialog onClose={() => setOpen(false)} />}
@@ -163,8 +155,7 @@ export function AnnouncementsPage() {
 
 function AnnouncementDialog({ onClose }: { onClose: () => void }) {
   const me = useMe();
-  const scopes =
-    me.role === 'super_admin' ? ['global', 'school'] : me.role === 'partner' ? ['partner', 'school'] : me.role === 'school_admin' ? ['school', 'class'] : ['class'];
+  const scopes = me.role === 'super_admin' ? ['global', 'school'] : me.role === 'partner' ? ['partner', 'school'] : me.role === 'school_admin' ? ['school', 'class'] : ['class'];
   const [scope, setScope] = useState(scopes[0]);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -244,34 +235,9 @@ function AnnouncementDialog({ onClose }: { onClose: () => void }) {
 export function EventList({ items, onDelete }: { items: SchoolEvent[]; onDelete?: (e: SchoolEvent) => void }) {
   if (!items.length) return <Empty title="No upcoming events" />;
   return (
-    <Stack spacing={1.5}>
+    <Stack spacing={1.75}>
       {items.map((e) => (
-        <Stack key={e._id} direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-          <Box sx={{ width: 56, textAlign: 'center', borderRadius: 2, bgcolor: 'rgba(242,139,48,0.12)', color: 'secondary.dark', py: 0.5, flexShrink: 0 }}>
-            <Typography variant="caption" sx={{ display: 'block', fontWeight: 700 }}>
-              {dayjs(e.startsAt).format('MMM')}
-            </Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: 20, lineHeight: 1 }}>{dayjs(e.startsAt).format('D')}</Typography>
-          </Box>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 600 }}>{e.title}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {dayjs(e.startsAt).format('ddd, h:mm A')}
-              {e.location ? ` · ${e.location}` : ''}
-              {refName(e.classId) ? ` · ${refName(e.classId)}` : refName(e.schoolId) ? ` · ${refName(e.schoolId)}` : !e.schoolId ? ' · All schools' : ''}
-            </Typography>
-            {e.description && (
-              <Typography variant="body2" sx={{ mt: 0.5 }}>
-                {e.description}
-              </Typography>
-            )}
-          </Box>
-          {onDelete && (
-            <Button size="small" color="error" onClick={() => onDelete(e)}>
-              Delete
-            </Button>
-          )}
-        </Stack>
+        <EventRow key={e._id} e={e} onDelete={onDelete} compact />
       ))}
     </Stack>
   );
@@ -311,9 +277,7 @@ export function EventsPage() {
           </>
         }
       />
-      <Section title={<Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}><EventOutlined /> <span>{showPast ? 'Recent and upcoming' : 'Upcoming'}</span></Stack>}>
-        <QueryState q={q}>{(items) => <EventList items={items} onDelete={canPost ? setDel : undefined} />}</QueryState>
-      </Section>
+      <QueryState q={q}>{(items) => <EventsBoard items={items} past={showPast} onDelete={canPost ? setDel : undefined} />}</QueryState>
       {open && <EventDialog onClose={() => setOpen(false)} />}
       <ConfirmDialog open={!!del} title="Delete event?" danger confirmLabel="Delete" onClose={() => setDel(null)} onConfirm={() => del && remove.mutate(del)} />
     </>
@@ -330,13 +294,7 @@ function EventDialog({ onClose }: { onClose: () => void }) {
   const classes = useGet<ClassSection[]>(me.role !== 'super_admin' ? '/classes' : null);
   const send = useSend('post', '/events', { success: 'Event added', invalidate: ['/events', '/dashboard'], onSuccess: onClose });
   return (
-    <FormDialog
-      open
-      title="Add event"
-      onClose={onClose}
-      loading={send.isPending}
-      onSubmit={() => send.mutate({ title, description, location, startsAt: new Date(startsAt).toISOString(), ...(classId ? { classId } : {}) })}
-    >
+    <FormDialog open title="Add event" onClose={onClose} loading={send.isPending} onSubmit={() => send.mutate({ title, description, location, startsAt: new Date(startsAt).toISOString(), ...(classId ? { classId } : {}) })}>
       <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
       <TextField label="Starts" type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} required />
       <TextField label="Location" value={location} onChange={(e) => setLocation(e.target.value)} />
@@ -359,7 +317,18 @@ export function AnnouncementsWidget({ limit = 3 }: { limit?: number }) {
   const q = useGet<Announcement[]>('/announcements', { limit });
   const base = useBase();
   return (
-    <Section title={<Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}><CampaignOutlined /> <span>Announcements</span></Stack>} action={<Button component={RouterLink} to={`${base}/announcements`}>View all</Button>}>
+    <Section
+      title={
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <CampaignOutlined /> <span>Announcements</span>
+        </Stack>
+      }
+      action={
+        <Button component={RouterLink} to={`${base}/announcements`}>
+          View all
+        </Button>
+      }
+    >
       <QueryState q={q}>
         {(items) =>
           items.length ? (
@@ -387,7 +356,18 @@ export function EventsWidget({ events }: { events?: SchoolEvent[] }) {
   const q = useGet<SchoolEvent[]>(events ? null : '/events', { from: dayjs().startOf('day').toISOString() });
   const list = (events ?? q.data ?? []).slice(0, 4);
   return (
-    <Section title={<Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}><EventOutlined /> <span>Upcoming events</span></Stack>} action={<Button component={RouterLink} to={`${base}/events`}>Calendar</Button>}>
+    <Section
+      title={
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <EventOutlined /> <span>Upcoming events</span>
+        </Stack>
+      }
+      action={
+        <Button component={RouterLink} to={`${base}/events`}>
+          Calendar
+        </Button>
+      }
+    >
       <EventList items={list} />
     </Section>
   );
