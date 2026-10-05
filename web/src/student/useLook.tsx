@@ -111,14 +111,59 @@ export interface VoiceStyle {
   gender: 'f' | 'm' | 'any';
   pitch: number;
   rate: number;
+  /** ElevenLabs voice ID — used when VITE_ELEVENLABS_API_KEY is set. */
+  elevenLabsVoiceId?: string;
 }
 
+const ELEVENLABS_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined;
+let _elAudio: HTMLAudioElement | null = null;
+
 /**
- * Read text aloud with the browser's voice, in the lesson's language (e.g. "hi" → a Hindi voice).
- * `style` picks a woman's or man's voice when the device has one, and sets pitch and speed (NanoBot buddies).
- * Returns false when this device has no voice for that language.
+ * Read text aloud.
+ * - If VITE_ELEVENLABS_API_KEY is set AND the buddy has an elevenLabsVoiceId → uses ElevenLabs (high quality).
+ * - Otherwise falls back to the browser's built-in Web Speech API.
  */
 export function speak(text: string, lang = 'en', style?: VoiceStyle) {
+  if (ELEVENLABS_KEY && style?.elevenLabsVoiceId) {
+    // Cancel any ongoing speech
+    window.speechSynthesis?.cancel();
+    if (_elAudio) { _elAudio.pause(); _elAudio = null; }
+
+    const voiceId = style.elevenLabsVoiceId;
+    fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': ELEVENLABS_KEY,
+        'content-type': 'application/json',
+        accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+      }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`ElevenLabs ${r.status}`);
+        return r.blob();
+      })
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        _elAudio = audio;
+        audio.onended = () => URL.revokeObjectURL(url);
+        audio.play().catch(() => { /* autoplay blocked */ });
+      })
+      .catch((err) => {
+        console.warn('ElevenLabs TTS failed, falling back to browser TTS', err);
+        _speakBrowser(text, lang, style);
+      });
+    return true;
+  }
+  return _speakBrowser(text, lang, style);
+}
+
+function _speakBrowser(text: string, lang = 'en', style?: VoiceStyle) {
   try {
     const s = window.speechSynthesis;
     if (!s) return false;

@@ -195,3 +195,29 @@ aiRouter.post('/ai/chats/:id/messages', async (req, res) => {
   await AiUsage.updateOne({ userId: me.id, month: month() }, { $inc: { tokens: reply.tokens }, $setOnInsert: { schoolId: me.schoolId } }, { upsert: true });
   res.json({ message: chat.messages.at(-1), title: chat.title });
 });
+
+/* ---- ElevenLabs Conversational AI: get signed URL with voice override ----- */
+aiRouter.get('/convai-token', currentUser, async (req, res) => {
+  const me = req.user!;
+  // Only students get the voice tutor
+  if (me.role !== 'student') return res.status(403).json({ error: 'Students only' });
+
+  const agentId = process.env.ELEVENLABS_AGENT_ID;
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!agentId || !apiKey) return res.status(503).json({ error: 'ElevenLabs not configured' });
+
+  const voiceId = typeof req.query.voiceId === 'string' ? req.query.voiceId : undefined;
+
+  try {
+    const elRes = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`,
+      { headers: { 'xi-api-key': apiKey } },
+    );
+    if (!elRes.ok) throw new Error(`ElevenLabs ${elRes.status}`);
+    const { signed_url } = (await elRes.json()) as { signed_url: string };
+    res.json({ signedUrl: signed_url, voiceId });
+  } catch (err) {
+    logger.error({ err }, 'convai-token error');
+    res.status(502).json({ error: 'Could not get ElevenLabs token' });
+  }
+});

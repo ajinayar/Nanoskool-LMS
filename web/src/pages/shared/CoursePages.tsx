@@ -46,6 +46,7 @@ import AddComment from '@mui/icons-material/AddCommentOutlined';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link as RouterLink, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { NanoAvatar, NanoWelcome } from '@/student/NanoGreeting';
+import { useLiveVoice } from '@/student/useLiveVoice';
 import { BuddyPickerDialog, useBuddy } from '@/student/BuddyPicker';
 import { useOptionalLook } from '@/student/useLook';
 import { useQueryClient } from '@tanstack/react-query';
@@ -423,13 +424,14 @@ export function NanoBotPage() {
   // Talk and listen in the student's own language
   const { prefs, setPrefs } = usePrefs();
   const lang = prefs.language ?? 'en';
+  const live = useLiveVoice(buddy, me.name.split(' ')[0], lang, LANGUAGES[lang]?.name ?? 'English');
   const spokeRef = useRef(false);
   const sayIt = (t: string) => {
-    if (!speak(t.replace(/[*#_`]/g, ''), lang, look ? buddy.voice : undefined)) toast.info(`This device has no ${LANGUAGES[lang]?.name} voice yet.`);
+    if (!speak(t.replace(/[*#_`]/g, ''), lang, look ? { ...buddy.voice, elevenLabsVoiceId: buddy.elevenLabsVoiceId } : undefined)) toast.info(`This device has no ${LANGUAGES[lang]?.name} voice yet.`);
   };
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat.data?.messages?.length, pending]);
+  }, [chat.data?.messages?.length, pending, live.lines.length]);
 
   const newChat = async () => {
     const r = await api.post<AiChat>('/ai/chats', {});
@@ -440,6 +442,11 @@ export function NanoBotPage() {
   const send = async (said?: string, spoken = true) => {
     const content = (said ?? text).trim();
     if (!content) return;
+    // Voice agent available → typing starts it (if needed) and it answers out loud
+    if (live.supported && live.sendOrStart(content)) {
+      setText('');
+      return;
+    }
     spokeRef.current = !!said && spoken;
     setText('');
     setPending(content);
@@ -462,6 +469,7 @@ export function NanoBotPage() {
   });
 
   const voice = useVoiceInput(lang, (said) => void send(said));
+  const active = live.live || live.connecting || voice.listening;
   const messages = chat.data?.messages ?? [];
   return (
     <>
@@ -525,92 +533,122 @@ export function NanoBotPage() {
               Talking about: {(chat.data.unitId as { title?: string } | null)?.title ?? (chat.data.courseId as { title?: string } | null)?.title}
             </Alert>
           )}
-          <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
-            {!messages.length && !pending && look && (
-              <NanoWelcome key={buddy.key} look={look} buddy={buddy} onChangeBuddy={() => setPicking(true)} userId={me._id} name={me.name.split(' ')[0]} lang={lang} fromBuddy={fromBuddy} onAsk={(t) => void send(t, false)} />
-            )}
-            {!messages.length && !pending && !look && (
-              <Stack sx={{ alignItems: 'center', textAlign: 'center', py: 6 }} spacing={1}>
-                <SmartToyOutlined sx={{ fontSize: 48, color: 'primary.main' }} />
-                <Typography variant="h6">Hi {me.name.split(' ')[0]}! I am NanoBot.</Typography>
-                <Typography color="text.secondary" sx={{ maxWidth: 420 }}>
-                  Ask me to explain a lesson, give you a practice question, or help debug your robot code.
-                </Typography>
-              </Stack>
-            )}
-            {messages.map((m, i) => (
-              <Bubble key={i} mine={m.role === 'user'} text={m.content} onListen={m.role === 'assistant' ? () => sayIt(m.content) : undefined} avatar={m.role === 'assistant' && look ? <NanoAvatar look={look} buddy={buddy} /> : undefined} />
-            ))}
-            {pending && (
-              <>
-                <Bubble mine text={pending} />
-                <Bubble mine={false} text="NanoBot is thinking…" muted avatar={look ? <NanoAvatar look={look} buddy={buddy} /> : undefined} />
-              </>
-            )}
-            <div ref={endRef} />
-          </Box>
-          {(voice.listening || voice.error) && (
-            <Box sx={{ px: 2, py: 1, bgcolor: voice.error ? '#FFF5F5' : '#F3F0FF', color: voice.error ? 'error.main' : '#5F3DC4', fontWeight: 600, fontSize: 14.5 }} aria-live="polite">
-              {voice.error ?? (voice.interim ? `“${voice.interim}”` : `Listening in ${LANGUAGES[lang]?.name}… speak now`)}
-            </Box>
-          )}
-          <Stack direction="row" spacing={1} sx={{ p: 1.5, borderTop: '1px solid #E4E6F0', alignItems: 'flex-end' }}>
-            <Select
-              size="small"
-              value={lang}
-              onChange={(e) => void setPrefs({ language: String(e.target.value) })}
-              aria-label="Language NanoBot answers in"
-              sx={{ minWidth: 104, '& .MuiSelect-select': { py: 1.1 } }}
-              renderValue={(v) => LANGUAGES[v]?.native ?? v}
-            >
-              {Object.entries(LANGUAGES).map(([code, l]) => (
-                <MenuItem key={code} value={code} lang={code}>
-                  {l.native}{' '}
-                  {code !== 'en' && (
-                    <Box component="span" sx={{ color: 'text.secondary', ml: 1 }}>
-                      {l.name}
-                    </Box>
-                  )}
-                </MenuItem>
-              ))}
-            </Select>
-            {voice.supported && (
-              <Tooltip title={voice.listening ? 'Stop' : `Talk to NanoBot in ${LANGUAGES[lang]?.name}`}>
-                <IconButton
-                  onClick={() => (voice.listening ? voice.stop() : voice.start())}
-                  disabled={!!pending}
-                  aria-label={voice.listening ? 'Stop listening' : 'Talk to NanoBot'}
-                  sx={{
-                    bgcolor: voice.listening ? '#E03131' : '#F3F0FF',
-                    color: voice.listening ? '#fff' : '#5F3DC4',
-                    width: 44,
-                    height: 44,
-                    '&:hover': { bgcolor: voice.listening ? '#C92A2A' : '#E5DBFF' },
-                    ...(voice.listening ? { animation: 'nb-pulse 1.2s infinite', '@keyframes nb-pulse': { '0%': { boxShadow: '0 0 0 0 rgba(224,49,49,.5)' }, '100%': { boxShadow: '0 0 0 12px rgba(224,49,49,0)' } } } : {}),
-                  }}
+
+          {(
+            <>
+              {/* Scrollable message list */}
+              <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
+                {!messages.length && !pending && look && (
+                  <NanoWelcome key={buddy.key} look={look} buddy={buddy} onChangeBuddy={() => setPicking(true)} userId={me._id} name={me.name.split(' ')[0]} lang={lang} fromBuddy={fromBuddy} onAsk={(t) => void send(t, false)} />
+                )}
+                {!messages.length && !pending && !look && (
+                  <Stack sx={{ alignItems: 'center', textAlign: 'center', py: 6 }} spacing={1}>
+                    <SmartToyOutlined sx={{ fontSize: 48, color: 'primary.main' }} />
+                    <Typography variant="h6">Hi {me.name.split(' ')[0]}! I am NanoBot.</Typography>
+                    <Typography color="text.secondary" sx={{ maxWidth: 420 }}>
+                      Ask me to explain a lesson, give you a practice question, or help debug your robot code.
+                    </Typography>
+                  </Stack>
+                )}
+                {messages.map((m, i) => (
+                  <Bubble key={i} mine={m.role === 'user'} text={m.content} onListen={m.role === 'assistant' ? () => sayIt(m.content) : undefined} avatar={m.role === 'assistant' && look ? <NanoAvatar look={look} buddy={buddy} /> : undefined} />
+                ))}
+                {pending && (
+                  <>
+                    <Bubble mine text={pending} />
+                    <Bubble mine={false} text="NanoBot is thinking…" muted avatar={look ? <NanoAvatar look={look} buddy={buddy} /> : undefined} />
+                  </>
+                )}
+                {live.lines.map((l, i) => (
+                  <Bubble key={`live-${i}`} mine={l.role === 'user'} text={l.text} avatar={l.role === 'agent' && look ? <NanoAvatar look={look} buddy={buddy} /> : undefined} />
+                ))}
+                <div ref={endRef} />
+              </Box>
+
+              {/* Voice listening status bar */}
+              {(live.connecting || live.live || live.error || voice.listening || voice.error) && (
+                <Box sx={{ px: 2, py: 1, bgcolor: live.error || voice.error ? '#FFF5F5' : '#F3F0FF', color: live.error || voice.error ? 'error.main' : '#5F3DC4', fontWeight: 600, fontSize: 14.5 }} aria-live="polite">
+                  {live.error ??
+                    voice.error ??
+                    (live.connecting
+                      ? 'Getting ready…'
+                      : live.live
+                        ? live.mode === 'speaking'
+                          ? `${buddy.name} is speaking…`
+                          : 'Listening… go ahead and ask'
+                        : voice.interim
+                          ? `"${voice.interim}"`
+                          : `Listening in ${LANGUAGES[lang]?.name}… speak now`)}
+                </Box>
+              )}
+
+              {/* Text input bar */}
+              <Stack direction="row" spacing={1} sx={{ p: 1.5, borderTop: '1px solid #E4E6F0', alignItems: 'flex-end' }}>
+                <Select
+                  size="small"
+                  value={lang}
+                  onChange={(e) => void setPrefs({ language: String(e.target.value) })}
+                  aria-label="Language NanoBot answers in"
+                  sx={{ minWidth: 104, '& .MuiSelect-select': { py: 1.1 } }}
+                  renderValue={(v) => LANGUAGES[v]?.native ?? v}
                 >
-                  {voice.listening ? <Stop /> : <Mic />}
-                </IconButton>
-              </Tooltip>
-            )}
-            <TextField
-              placeholder={voice.supported ? 'Type or tap the mic and speak…' : 'Type your question…'}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void send();
-                }
-              }}
-              multiline
-              maxRows={4}
-              slotProps={{ htmlInput: { maxLength: 2000 } }}
-            />
-            <Button variant="contained" onClick={() => send()} disabled={!text.trim() || !!pending} aria-label="Send">
-              <Send />
-            </Button>
-          </Stack>
+                  {Object.entries(LANGUAGES).map(([code, l]) => (
+                    <MenuItem key={code} value={code} lang={code}>
+                      {l.native}{' '}
+                      {code !== 'en' && (
+                        <Box component="span" sx={{ color: 'text.secondary', ml: 1 }}>
+                          {l.name}
+                        </Box>
+                      )}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {(live.supported || voice.supported) && (
+                  <Tooltip title={active ? 'Stop' : `Talk to NanoBot`}>
+                    <IconButton
+                      onClick={() => {
+                        if (live.live || live.connecting) void live.stop();
+                        else if (live.supported) void live.start();
+                        else if (voice.listening) voice.stop();
+                        else voice.start();
+                      }}
+                      disabled={!!pending && !active}
+                      aria-label={active ? 'Stop' : 'Talk to NanoBot'}
+                      sx={{
+                        bgcolor: active ? '#E03131' : '#F3F0FF',
+                        color: active ? '#fff' : '#5F3DC4',
+                        width: 44,
+                        height: 44,
+                        '&:hover': { bgcolor: active ? '#C92A2A' : '#E5DBFF' },
+                        ...(active ? { animation: 'nb-pulse 1.2s infinite', '@keyframes nb-pulse': { '0%': { boxShadow: '0 0 0 0 rgba(224,49,49,.5)' }, '100%': { boxShadow: '0 0 0 12px rgba(224,49,49,0)' } } } : {}),
+                      }}
+                    >
+                      {active ? <Stop /> : <Mic />}
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <TextField
+                  size="small"
+                  placeholder={live.supported || voice.supported ? 'Type or tap the mic…' : 'Type your question…'}
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void send();
+                    }
+                  }}
+                  multiline
+                  maxRows={4}
+                  sx={{ flex: 1, minWidth: 0 }}
+                  slotProps={{ htmlInput: { maxLength: 2000 } }}
+                />
+                <Button variant="contained" onClick={() => send()} disabled={!text.trim() || !!pending} aria-label="Send">
+                  <Send />
+                </Button>
+              </Stack>
+            </>
+          )}
         </Paper>
       </Box>
       {look && <BuddyPickerDialog open={picking} onClose={() => setPicking(false)} look={look} />}

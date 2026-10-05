@@ -28,17 +28,21 @@ export interface BuddyDef {
   role: string; // one short line under the name
   intro?: string; // "your NanoBot buddy" style tag in the greeting (English)
   voice: { gender: 'f' | 'm' | 'any'; pitch: number; rate: number };
+  /** ElevenLabs voice ID — used when VITE_ELEVENLABS_API_KEY is set. */
+  elevenLabsVoiceId?: string;
   art: PersonArt | LionArt | { kind: 'nano' };
 }
 
 export const BUDDIES: BuddyDef[] = [
-  { key: 'nano', name: 'Nano', group: 'nanoskool', role: 'Your robot buddy', voice: { gender: 'any', pitch: 1.1, rate: 0.92 }, art: { kind: 'nano' } },
+  // Nano: robot — English neutral voice
+  { key: 'nano', name: 'Nano', group: 'nanoskool', role: 'Your robot buddy', voice: { gender: 'any', pitch: 1.1, rate: 0.92 }, elevenLabsVoiceId: 'yoZ06aMxZJJ28mfd3POQ', art: { kind: 'nano' } },
   {
     key: 'tara',
     name: 'Tara',
     group: 'nanoskool',
     role: 'Explorer, with Mithu the parrot',
     voice: { gender: 'f', pitch: 1.3, rate: 1 },
+    elevenLabsVoiceId: '9FTUWXd0yHJL1ZiZ71RK', // Anika — young Indian female
     art: { kind: 'person', skin: '#C98B5B', hair: 'braid', hairColor: '#2B1B14', top: '#2FA37B', top2: '#F2C14E', outfit: 'vest', extra: 'parrot-safari' },
   },
   {
@@ -47,9 +51,11 @@ export const BUDDIES: BuddyDef[] = [
     group: 'nanoskool',
     role: 'Young inventor',
     voice: { gender: 'm', pitch: 1.3, rate: 1 },
+    elevenLabsVoiceId: 'g5CIjZEefAph4nQFvHAz', // Ethan — English young boy
     art: { kind: 'person', skin: '#E2AE7E', hair: 'spiky', hairColor: '#3A2418', top: '#4F7CF5', top2: '#FFFFFF', outfit: 'coat', extra: 'goggles' },
   },
-  { key: 'sheru', name: 'Sheru', group: 'nanoskool', role: 'Lion cub who loves cricket', voice: { gender: 'm', pitch: 1.4, rate: 1.02 }, art: { kind: 'lion' } },
+  // Sheru: lion cub — English energetic young male
+  { key: 'sheru', name: 'Sheru', group: 'nanoskool', role: 'Lion cub who loves cricket', voice: { gender: 'm', pitch: 1.4, rate: 1.02 }, elevenLabsVoiceId: 'TX3LPaxmHKxFdv7VOQHJ', art: { kind: 'lion' } },
 
   {
     key: 'meera',
@@ -57,15 +63,18 @@ export const BUDDIES: BuddyDef[] = [
     group: 'family',
     role: 'Best friend',
     voice: { gender: 'f', pitch: 1.25, rate: 0.98 },
+    elevenLabsVoiceId: '9FTUWXd0yHJL1ZiZ71RK', // Anika — young Indian female
     art: { kind: 'person', skin: '#B87A4B', hair: 'ponytail', hairColor: '#24160F', top: '#F06A9B', outfit: 'tee', extra: 'headband' },
   },
-  { key: 'kabir', name: 'Kabir', group: 'family', role: 'Best friend', voice: { gender: 'm', pitch: 1.2, rate: 0.98 }, art: { kind: 'person', skin: '#D49A6A', hair: 'short', hairColor: '#24160F', top: '#FF8A3D', outfit: 'tee', extra: 'cap' } },
+  // Kabir: young Indian boy
+  { key: 'kabir', name: 'Kabir', group: 'family', role: 'Best friend', voice: { gender: 'm', pitch: 1.2, rate: 0.98 }, elevenLabsVoiceId: 'Tjm71aOgsbTK9LM4TiSa', art: { kind: 'person', skin: '#D49A6A', hair: 'short', hairColor: '#24160F', top: '#FF8A3D', outfit: 'tee', extra: 'cap' } },
   {
     key: 'anu-didi',
     name: 'Anu Didi',
     group: 'family',
     role: 'Big sister',
     voice: { gender: 'f', pitch: 1.1, rate: 0.95 },
+    elevenLabsVoiceId: '9FTUWXd0yHJL1ZiZ71RK', // Anika — young Indian female (big sister)
     art: { kind: 'person', skin: '#C68B59', hair: 'long', hairColor: '#1E120C', top: '#8B6CF0', top2: '#F7D774', outfit: 'kurta', extra: 'earphones' },
   },
   {
@@ -74,6 +83,7 @@ export const BUDDIES: BuddyDef[] = [
     group: 'family',
     role: 'Big brother',
     voice: { gender: 'm', pitch: 1, rate: 0.95 },
+    elevenLabsVoiceId: 'Tjm71aOgsbTK9LM4TiSa', // Hari Kavi — Indian male (big brother)
     art: { kind: 'person', skin: '#A86F45', hair: 'curly', hairColor: '#1E120C', top: '#2E9BD6', outfit: 'shirt', glasses: true },
   },
   {
@@ -82,6 +92,7 @@ export const BUDDIES: BuddyDef[] = [
     group: 'family',
     role: 'Grandmother, loves stories',
     voice: { gender: 'f', pitch: 0.85, rate: 0.82 },
+    elevenLabsVoiceId: 'zrHiDhphv9ZnVXBqCLjz', // Dorothy — calm older woman (no old Indian female available)
     art: { kind: 'person', skin: '#C08A60', hair: 'bun', hairColor: '#D9D9DE', top: '#E0663E', top2: '#F6C343', outfit: 'saree', glasses: true, bindi: true },
   },
   {
@@ -90,6 +101,7 @@ export const BUDDIES: BuddyDef[] = [
     group: 'family',
     role: 'Grandfather, loves stories',
     voice: { gender: 'm', pitch: 0.75, rate: 0.8 },
+    elevenLabsVoiceId: 'DQLhorDHb2d4HkZj4kFd', // Prakash — old Indian male (grandfather)
     art: { kind: 'person', skin: '#B57E55', hair: 'bald', hairColor: '#E3E3E8', top: '#F4EFE2', top2: '#8C6B4F', outfit: 'kurta', glasses: true, beard: 'mustache' },
   },
 
@@ -99,6 +111,7 @@ export const BUDDIES: BuddyDef[] = [
     group: 'teachers',
     role: 'Teacher',
     voice: { gender: 'f', pitch: 1, rate: 0.9 },
+    elevenLabsVoiceId: '9FTUWXd0yHJL1ZiZ71RK', // Anika — Indian female teacher
     art: { kind: 'person', skin: '#B97D50', hair: 'bun', hairColor: '#1E120C', top: '#1F9E8F', top2: '#F2B544', outfit: 'saree', bindi: true, extra: 'book' },
   },
   {
@@ -107,6 +120,7 @@ export const BUDDIES: BuddyDef[] = [
     group: 'teachers',
     role: 'Teacher',
     voice: { gender: 'm', pitch: 0.95, rate: 0.9 },
+    elevenLabsVoiceId: 'Tjm71aOgsbTK9LM4TiSa', // Hari Kavi — Indian male teacher
     art: { kind: 'person', skin: '#C48A5C', hair: 'short', hairColor: '#1E120C', top: '#5B6BD6', outfit: 'shirt', glasses: true, beard: 'mustache', extra: 'tie' },
   },
   {
@@ -115,6 +129,7 @@ export const BUDDIES: BuddyDef[] = [
     group: 'teachers',
     role: 'Wise guide',
     voice: { gender: 'm', pitch: 0.7, rate: 0.8 },
+    elevenLabsVoiceId: 'DQLhorDHb2d4HkZj4kFd', // Prakash — old Indian male (wise guide)
     art: { kind: 'person', skin: '#B9845A', hair: 'bald', hairColor: '#ECECF0', top: '#F39A3B', top2: '#FFF6E6', outfit: 'shawl', beard: 'full' },
   },
 ];

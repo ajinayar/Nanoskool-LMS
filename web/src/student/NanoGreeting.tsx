@@ -109,7 +109,7 @@ export function NanoWelcome({
   useEffect(() => {
     if (spoken.current || !(fromBuddy || prefs.readAloud)) return;
     spoken.current = true;
-    const t = window.setTimeout(() => speak(message, lang, buddy.voice), fromBuddy && !still ? 600 : 100);
+    const t = window.setTimeout(() => speak(message, lang, { ...buddy.voice, elevenLabsVoiceId: buddy.elevenLabsVoiceId }), fromBuddy && !still ? 600 : 100);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -154,7 +154,7 @@ export function NanoWelcome({
           </Box>
         </Typography>
         <Tooltip title="Say it again">
-          <IconButton size="small" onClick={() => speak(message, lang, buddy.voice)} aria-label="Hear NanoBot say hello" sx={{ position: 'absolute', right: 6, top: 6, color: accent }}>
+          <IconButton size="small" onClick={() => speak(message, lang, { ...buddy.voice, elevenLabsVoiceId: buddy.elevenLabsVoiceId })} aria-label="Hear NanoBot say hello" sx={{ position: 'absolute', right: 6, top: 6, color: accent }}>
             <VolumeUp fontSize="small" />
           </IconButton>
         </Tooltip>

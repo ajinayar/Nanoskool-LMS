@@ -29,7 +29,7 @@ export function BuddyPickerDialog({ open, onClose, look }: { open: boolean; onCl
   const toast = useToast();
   const first = me.name.split(' ')[0];
   const choose = (b: BuddyDef) => {
-    speak(helloLine(b, first, prefs.language), prefs.language, b.voice);
+    speak(helloLine(b, first, prefs.language), prefs.language, { ...b.voice, elevenLabsVoiceId: b.elevenLabsVoiceId });
     setPrefs({ buddy: b.key }).catch(() => toast.error('Could not save. Try again.'));
   };
   return (
@@ -76,7 +76,7 @@ export function BuddyPickerDialog({ open, onClose, look }: { open: boolean; onCl
                         </ButtonBase>
                         {on && <CheckCircle sx={{ position: 'absolute', top: 8, left: 8, color: look.primary }} aria-hidden />}
                         <Tooltip title={`Hear ${b.name}`}>
-                          <IconButton size="small" aria-label={`Hear ${b.name}`} onClick={() => speak(helloLine(b, first, prefs.language), prefs.language, b.voice)} sx={{ position: 'absolute', top: 6, right: 6, color: look.primary }}>
+                          <IconButton size="small" aria-label={`Hear ${b.name}`} onClick={() => speak(helloLine(b, first, prefs.language), prefs.language, { ...b.voice, elevenLabsVoiceId: b.elevenLabsVoiceId })} sx={{ position: 'absolute', top: 6, right: 6, color: look.primary }}>
                             <VolumeUp fontSize="small" />
                           </IconButton>
                         </Tooltip>
