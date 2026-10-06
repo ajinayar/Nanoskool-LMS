@@ -196,28 +196,55 @@ aiRouter.post('/ai/chats/:id/messages', async (req, res) => {
   res.json({ message: chat.messages.at(-1), title: chat.title });
 });
 
-/* ---- ElevenLabs Conversational AI: get signed URL with voice override ----- */
-aiRouter.get('/convai-token', currentUser, async (req, res) => {
-  const me = req.user!;
-  // Only students get the voice tutor
-  if (me.role !== 'student') return res.status(403).json({ error: 'Students only' });
+/* ---- ElevenLabs (voices) --------------------------------------------------------------------
+ * The ElevenLabs key stays on the server: the browser asks here for a one-time signed link to the
+ * voice agent, and for spoken audio of NanoBot's answers. Without the key both answer 503 and the
+ * app falls back to the browser's own voices.
+ */
+const elKey = () => process.env.ELEVENLABS_API_KEY || undefined;
 
+/** A signed, short-lived link to the ElevenLabs voice agent (students only). */
+aiRouter.get('/convai-token', async (req, res) => {
+  const me = currentUser(req);
+  if (me.role !== 'student') throw forbidden('The voice tutor is for students');
   const agentId = process.env.ELEVENLABS_AGENT_ID;
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!agentId || !apiKey) return res.status(503).json({ error: 'ElevenLabs not configured' });
-
-  const voiceId = typeof req.query.voiceId === 'string' ? req.query.voiceId : undefined;
-
+  const apiKey = elKey();
+  if (!agentId || !apiKey) return res.status(503).json({ error: { code: 'not_configured', message: 'Voice is not set up yet' } });
+  const q = await quota(me);
+  if (q.limit !== null && q.used >= q.limit) throw badRequest("Your school has used this month's AI allowance");
+  const voiceId = typeof req.query.voiceId === 'string' && /^[A-Za-z0-9]{10,40}$/.test(req.query.voiceId) ? req.query.voiceId : undefined;
   try {
-    const elRes = await fetch(
-      `https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${agentId}`,
-      { headers: { 'xi-api-key': apiKey } },
-    );
+    const elRes = await fetch(`https://api.elevenlabs.io/v1/convai/conversation/get_signed_url?agent_id=${encodeURIComponent(agentId)}`, { headers: { 'xi-api-key': apiKey } });
     if (!elRes.ok) throw new Error(`ElevenLabs ${elRes.status}`);
     const { signed_url } = (await elRes.json()) as { signed_url: string };
     res.json({ signedUrl: signed_url, voiceId });
   } catch (err) {
     logger.error({ err }, 'convai-token error');
-    res.status(502).json({ error: 'Could not get ElevenLabs token' });
+    throw new HttpError(502, 'ai_error', 'Could not start the voice chat right now');
   }
+});
+
+/** Speak a NanoBot answer with a buddy's ElevenLabs voice. Returns MP3 audio. */
+aiRouter.post('/ai/tts', async (req, res) => {
+  const me = currentUser(req);
+  const { text, voiceId } = body(req, z.object({ text: z.string().trim().min(1).max(2500), voiceId: z.string().regex(/^[A-Za-z0-9]{10,40}$/) }));
+  const apiKey = elKey();
+  if (!apiKey) return res.status(503).json({ error: { code: 'not_configured', message: 'ElevenLabs voices are not set up' } });
+  const q = await quota(me);
+  if (q.limit !== null && q.used >= q.limit) throw badRequest("Your school has used this month's AI allowance");
+  const elRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: 'POST',
+    headers: { 'xi-api-key': apiKey, 'content-type': 'application/json', accept: 'audio/mpeg' },
+    body: JSON.stringify({ text, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+  });
+  if (!elRes.ok) {
+    logger.warn({ status: elRes.status }, 'ElevenLabs TTS failed');
+    throw new HttpError(502, 'ai_error', 'Could not make the voice right now');
+  }
+  const audio = Buffer.from(await elRes.arrayBuffer());
+  // Voice costs count against the school's AI allowance (roughly by length of text)
+  await AiUsage.updateOne({ userId: me.id, month: month() }, { $inc: { tokens: estimateTokens(text) * 2 }, $setOnInsert: { schoolId: me.schoolId } }, { upsert: true });
+  res.setHeader('content-type', 'audio/mpeg');
+  res.setHeader('cache-control', 'no-store');
+  res.send(audio);
 });

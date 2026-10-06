@@ -28,7 +28,7 @@ export interface BuddyDef {
   role: string; // one short line under the name
   intro?: string; // "your NanoBot buddy" style tag in the greeting (English)
   voice: { gender: 'f' | 'm' | 'any'; pitch: number; rate: number };
-  /** ElevenLabs voice ID — used when VITE_ELEVENLABS_API_KEY is set. */
+  /** ElevenLabs voice ID — used when the server has an ElevenLabs key (ELEVENLABS_API_KEY in server/.env). */
   elevenLabsVoiceId?: string;
   art: PersonArt | LionArt | { kind: 'nano' };
 }

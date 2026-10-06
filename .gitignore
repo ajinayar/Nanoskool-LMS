@@ -1,7 +1,9 @@
 node_modules
 dist
 .env
-uploads
+# uploaded files (not the server code in server/src/modules/uploads)
+/uploads/
+server/uploads/
 .DS_Store
 logs
 *.log

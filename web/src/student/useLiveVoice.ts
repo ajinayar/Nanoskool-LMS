@@ -6,11 +6,14 @@
  * stop()   → ends it
  * Spoken lines are exposed in `lines` so the chat can show them as bubbles.
  *
- * Connects straight from the browser to ElevenLabs for minimum latency.
+ * Connects straight from the browser to ElevenLabs for minimum latency. When the server has the
+ * ElevenLabs key it hands out a one-time signed link (/api/convai-token), so the agent can stay private;
+ * otherwise the public agent id (VITE_ELEVENLABS_AGENT_ID) is used.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Conversation } from '@11labs/client';
 import type { BuddyDef } from '@/lib/buddies';
+import { api } from '@/api/client';
 
 const AGENT_ID = import.meta.env.VITE_ELEVENLABS_AGENT_ID as string | undefined;
 
@@ -104,10 +107,18 @@ export function useLiveVoice(buddy: BuddyDef, studentName?: string, lang = 'en',
     };
     const hasOverrides = Object.keys(overrides).length > 0;
 
-    const open = () =>
-      Conversation.startSession({
-        agentId: AGENT_ID,
-        connectionType: 'websocket',
+    // A signed link from our server when it has the ElevenLabs key; the public agent id otherwise
+    const signedUrl = async () => {
+      try {
+        return (await api.get<{ signedUrl: string }>('/convai-token', { params: { voiceId: buddy.elevenLabsVoiceId } })).data.signedUrl;
+      } catch {
+        return undefined;
+      }
+    };
+    const open = async () => {
+      const url = await signedUrl();
+      return Conversation.startSession({
+        ...(url ? { signedUrl: url, connectionType: 'websocket' as const } : { agentId: AGENT_ID!, connectionType: 'websocket' as const }),
         useWakeLock: false,
         ...(hasOverrides ? { overrides } : {}),
         onConnect: () => {
@@ -146,6 +157,7 @@ export function useLiveVoice(buddy: BuddyDef, studentName?: string, lang = 'en',
           setLines((prev) => [...prev, { role: source === 'user' ? 'user' : 'agent', text: clean }]);
         },
       });
+    };
 
     try {
       // 1) microphone first, so a blocked / missing / unresponsive mic is reported clearly

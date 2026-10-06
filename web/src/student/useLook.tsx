@@ -1,3 +1,4 @@
+import { api } from '@/api/client';
 import { speechCode } from '@/lib/languages';
 import { usePrefs } from '@/lib/prefs';
 import { sharedContext } from '@/lib/sharedContext';
@@ -111,51 +112,41 @@ export interface VoiceStyle {
   gender: 'f' | 'm' | 'any';
   pitch: number;
   rate: number;
-  /** ElevenLabs voice ID — used when VITE_ELEVENLABS_API_KEY is set. */
+  /** ElevenLabs voice ID — used when the server has an ElevenLabs key (ELEVENLABS_API_KEY in server/.env). */
   elevenLabsVoiceId?: string;
 }
 
-const ELEVENLABS_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY as string | undefined;
 let _elAudio: HTMLAudioElement | null = null;
+// null = not tried yet; false = the server has no ElevenLabs key, so use the browser's voices from now on
+let _serverVoices: boolean | null = null;
 
 /**
  * Read text aloud.
- * - If VITE_ELEVENLABS_API_KEY is set AND the buddy has an elevenLabsVoiceId → uses ElevenLabs (high quality).
+ * - If the buddy has an ElevenLabs voice and the server has an ElevenLabs key → the server makes the audio
+ *   (the key never reaches the browser).
  * - Otherwise falls back to the browser's built-in Web Speech API.
  */
 export function speak(text: string, lang = 'en', style?: VoiceStyle) {
-  if (ELEVENLABS_KEY && style?.elevenLabsVoiceId) {
-    // Cancel any ongoing speech
+  if (style?.elevenLabsVoiceId && _serverVoices !== false) {
     window.speechSynthesis?.cancel();
-    if (_elAudio) { _elAudio.pause(); _elAudio = null; }
-
-    const voiceId = style.elevenLabsVoiceId;
-    fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`, {
-      method: 'POST',
-      headers: {
-        'xi-api-key': ELEVENLABS_KEY,
-        'content-type': 'application/json',
-        accept: 'audio/mpeg',
-      },
-      body: JSON.stringify({
-        text,
-        model_id: 'eleven_multilingual_v2',
-        voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-      }),
-    })
+    if (_elAudio) {
+      _elAudio.pause();
+      _elAudio = null;
+    }
+    api
+      .post('/ai/tts', { text: text.slice(0, 2500), voiceId: style.elevenLabsVoiceId }, { responseType: 'blob' })
       .then((r) => {
-        if (!r.ok) throw new Error(`ElevenLabs ${r.status}`);
-        return r.blob();
-      })
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
+        _serverVoices = true;
+        const url = URL.createObjectURL(r.data as Blob);
         const audio = new Audio(url);
         _elAudio = audio;
         audio.onended = () => URL.revokeObjectURL(url);
-        audio.play().catch(() => { /* autoplay blocked */ });
+        audio.play().catch(() => {
+          /* autoplay blocked */
+        });
       })
-      .catch((err) => {
-        console.warn('ElevenLabs TTS failed, falling back to browser TTS', err);
+      .catch((err: { response?: { status?: number } }) => {
+        if (err?.response?.status === 503) _serverVoices = false;
         _speakBrowser(text, lang, style);
       });
     return true;
@@ -191,6 +182,8 @@ function _speakBrowser(text: string, lang = 'en', style?: VoiceStyle) {
 
 export function stopSpeaking() {
   try {
+    _elAudio?.pause();
+    _elAudio = null;
     window.speechSynthesis?.cancel();
   } catch {
     /* ignore */
